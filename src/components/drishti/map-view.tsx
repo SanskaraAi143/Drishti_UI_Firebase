@@ -49,11 +49,10 @@ const loadGoogleMapsScript = (apiKey: string): Promise<void> => {
 
     mapLoadPromise = new Promise((resolve, reject) => {
         if (document.getElementById(SCRIPT_ID)) {
-            if (typeof window.google !== 'undefined' && window.google.maps) {
-                 resolve();
+            if (window.google?.maps) {
+                resolve();
+                return;
             }
-            // If script is there but google is not, it might be loading,
-            // we can wait for the callback.
              window.initMap = () => {
                 resolve();
              };
@@ -96,8 +95,7 @@ export default function MapView({ center, zoom, staff, incidents, layers, onInci
     const markersRef = useRef<{ [key: string]: google.maps.marker.AdvancedMarkerElement | google.maps.Marker }>({});
     const heatmapRef = useRef<google.maps.visualization.HeatmapLayer | null>(null);
     const polygonsRef = useRef<google.maps.Polygon[]>([]);
-    const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
-
+    
     const [isMapInitialized, setIsMapInitialized] = useState(false);
 
     useEffect(() => {
@@ -112,8 +110,8 @@ export default function MapView({ center, zoom, staff, incidents, layers, onInci
                 if (!mapRef.current || mapInstanceRef.current) return;
 
                 const map = new google.maps.Map(mapRef.current, {
-                    center,
-                    zoom,
+                    center: { lat: 12.9716, lng: 77.5946 }, // Use Bengaluru as initial center
+                    zoom: 12, // Use initial zoom from reference
                     styles: mapStyles,
                     mapId: "drishti_dark_map",
                     gestureHandling: 'greedy',
@@ -128,7 +126,6 @@ export default function MapView({ center, zoom, staff, incidents, layers, onInci
                 });
                 heatmapRef.current = heatmap;
 
-                // Add Bengaluru marker and InfoWindow
                 const bengaluruMarker = new google.maps.Marker({
                     position: { lat: 12.9716, lng: 77.5946 },
                     map: map,
@@ -138,13 +135,11 @@ export default function MapView({ center, zoom, staff, incidents, layers, onInci
                 const infoWindow = new google.maps.InfoWindow({
                     content: '<h2>Welcome to Bengaluru!</h2><p>The Garden City of India.</p>'
                 });
-                infoWindowRef.current = infoWindow;
                 
                 bengaluruMarker.addListener('click', () => {
                     infoWindow.open(map, bengaluruMarker);
                 });
                 markersRef.current['bengaluru-marker'] = bengaluruMarker;
-
 
                 setIsMapInitialized(true);
             })
@@ -200,28 +195,25 @@ export default function MapView({ center, zoom, staff, incidents, layers, onInci
 
         const currentMarkers = markersRef.current;
         const newMarkers: { [key: string]: google.maps.marker.AdvancedMarkerElement | google.maps.Marker } = {
-            'bengaluru-marker': currentMarkers['bengaluru-marker']
+             'bengaluru-marker': currentMarkers['bengaluru-marker']
         };
-        const markersToKeep = new Set<string>(['bengaluru-marker']);
+
+        const activeMarkerIds = new Set<string>(['bengaluru-marker']);
 
         if (layers.staff) {
             staff.forEach(s => {
                 const markerId = `staff-${s.id}`;
-                markersToKeep.add(markerId);
+                activeMarkerIds.add(markerId);
                 let marker = currentMarkers[markerId] as google.maps.marker.AdvancedMarkerElement;
 
                 if (marker) {
                     marker.position = s.location;
-                    marker.map = map;
                 } else {
                     marker = new google.maps.marker.AdvancedMarkerElement({
                         position: s.location,
                         map: map,
                         content: createStaffMarkerElement(s),
                         title: s.name,
-                    });
-                    marker.addListener('click', () => {
-                        console.log('Staff clicked:', s.name);
                     });
                 }
                 newMarkers[markerId] = marker;
@@ -231,12 +223,11 @@ export default function MapView({ center, zoom, staff, incidents, layers, onInci
         if (layers.incidents) {
             incidents.forEach(i => {
                 const markerId = `incident-${i.id}`;
-                markersToKeep.add(markerId);
+                activeMarkerIds.add(markerId);
                 let marker = currentMarkers[markerId] as google.maps.marker.AdvancedMarkerElement;
 
                 if (marker) {
                     marker.position = i.location;
-                    marker.map = map;
                 } else {
                     marker = new google.maps.marker.AdvancedMarkerElement({
                         position: i.location,
@@ -249,31 +240,33 @@ export default function MapView({ center, zoom, staff, incidents, layers, onInci
                 newMarkers[markerId] = marker;
             });
         }
-
+        
+        // Remove old markers
         Object.keys(currentMarkers).forEach(markerId => {
-            if (!markersToKeep.has(markerId)) {
+            if (!activeMarkerIds.has(markerId)) {
                 (currentMarkers[markerId] as any).map = null;
+                delete newMarkers[markerId];
             }
         });
 
+        // Set markers to map
+        Object.values(newMarkers).forEach(marker => {
+             (marker as any).map = map;
+        });
+        
         markersRef.current = newMarkers;
 
     }, [staff, incidents, layers.staff, layers.incidents, onIncidentClick, isMapInitialized, createStaffMarkerElement, createIncidentMarkerElement]);
 
     useEffect(() => {
         const heatmap = heatmapRef.current;
-        const map = mapInstanceRef.current;
-        if (heatmap && map && isMapInitialized) {
+        if (heatmap && isMapInitialized) {
             if (layers.heatmap) {
                 const allPoints = [...staff.map(s => new google.maps.LatLng(s.location.lat, s.location.lng)),
                                    ...incidents.map(i => new google.maps.LatLng(i.location.lat, i.location.lng))];
                 
-                if (allPoints.length > 0) {
-                    heatmap.setData(allPoints);
-                } else {
-                    heatmap.setData([]);
-                }
-                heatmap.setMap(map);
+                heatmap.setData(allPoints.length > 0 ? allPoints : []);
+                heatmap.setMap(mapInstanceRef.current);
             } else {
                 heatmap.setMap(null);
             }
