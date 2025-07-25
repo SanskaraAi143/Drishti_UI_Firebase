@@ -37,3 +37,19 @@ export type Message = {
   text: string;
   isLoading?: boolean;
 };
+
+export type Camera = {
+  id: string;
+  name: string;
+  location: string;
+  streamUrl: string;
+};
+
+export type LostAndFoundPerson = {
+    id: string;
+    name?: string;
+    photoUrl: string;
+    lastSeenLocation: string;
+    lastSeenTime: Date;
+    status: 'Searching' | 'Found' | 'Not Found';
+};

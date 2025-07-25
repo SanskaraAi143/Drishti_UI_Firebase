@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import type { Alert, Staff, Incident, MapLayers, Location } from '@/lib/types';
+import type { Alert, Staff, Incident, MapLayers, Location, Camera } from '@/lib/types';
 import Sidebar from '@/components/drishti/sidebar';
 import MapView from '@/components/drishti/map-view';
 import IncidentModal from '@/components/drishti/incident-modal';
+import CameraView from '@/components/drishti/camera-view';
+import LostAndFound from '@/components/drishti/lost-and-found';
 import { useToast } from '@/hooks/use-toast';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 
@@ -41,6 +43,7 @@ const MOCK_STAFF: Staff[] = [
 ];
 
 export default function CommanderDashboard() {
+  const [activeTab, setActiveTab] = useState('map');
   const [alerts, setAlerts] = useState<Alert[]>(MOCK_ALERTS);
   const [staff, setStaff] = useState<Staff[]>(MOCK_STAFF);
   const [incidents, setIncidents] = useState<Incident[]>([...MOCK_ALERTS]);
@@ -92,15 +95,38 @@ export default function CommanderDashboard() {
     setSelectedIncident(alert);
     setMapCenter(alert.location);
     setMapZoom(18);
+    setActiveTab('map');
   }, []);
 
   const handleStaffClick = useCallback((staffMember: Staff) => {
     setMapCenter(staffMember.location);
     setMapZoom(18);
+    setActiveTab('map');
   }, []);
 
   const handleToggleLayer = (layer: keyof MapLayers) => {
     setMapLayers(prev => ({ ...prev, [layer]: !prev[layer] }));
+  };
+
+  const renderActiveView = () => {
+    switch (activeTab) {
+      case 'cameras':
+        return <CameraView />;
+      case 'lost-and-found':
+        return <LostAndFound />;
+      case 'map':
+      default:
+        return (
+          <MapView
+            center={mapCenter}
+            zoom={mapZoom}
+            staff={staff}
+            incidents={incidents}
+            layers={mapLayers}
+            onIncidentClick={handleAlertClick}
+          />
+        );
+    }
   };
 
   return (
@@ -112,16 +138,11 @@ export default function CommanderDashboard() {
           onStaffClick={handleStaffClick}
           mapLayers={mapLayers}
           onToggleLayer={handleToggleLayer}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
         />
         <SidebarInset>
-            <MapView
-              center={mapCenter}
-              zoom={mapZoom}
-              staff={staff}
-              incidents={incidents}
-              layers={mapLayers}
-              onIncidentClick={handleAlertClick}
-            />
+            {renderActiveView()}
         </SidebarInset>
         <IncidentModal
           incident={selectedIncident}
