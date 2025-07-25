@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { createRoot } from 'react-dom/client';
 import type { Location, Staff, Incident, MapLayers } from '@/lib/types';
 import { IncidentIcon } from '../icons/incident-icons';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { createRoot } from 'react-dom/client';
 
 const mapStyles: google.maps.MapTypeStyle[] = [
     { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
@@ -28,208 +28,248 @@ const mapStyles: google.maps.MapTypeStyle[] = [
 ];
 
 const severityColors = {
-  High: '#ef4444',
-  Medium: '#f97316',
-  Low: '#3b82f6',
+    High: '#ef4444',
+    Medium: '#f97316',
+    Low: '#3b82f6',
 };
 
+declare global {
+    interface Window {
+        initMap?: () => void;
+    }
+}
+
+let mapLoadPromise: Promise<void> | null = null;
 const SCRIPT_ID = 'googleMapsScript';
-let isScriptLoaded = false;
-let mapPromise: Promise<void> | null = null;
 
 const loadGoogleMapsScript = (apiKey: string): Promise<void> => {
-    if (mapPromise) {
-        return mapPromise;
+    if (mapLoadPromise) {
+        return mapLoadPromise;
     }
 
-    mapPromise = new Promise((resolve, reject) => {
-        if (typeof window.google !== 'undefined' && typeof window.google.maps !== 'undefined') {
-            isScriptLoaded = true;
-            resolve();
-            return;
-        }
-        
-        const existingScript = document.getElementById(SCRIPT_ID);
-        if (existingScript) {
-             // If script exists, it might be loading. We can't easily hook into its completion.
-             // The best we can do is poll for the google object.
-            const intervalId = setInterval(() => {
-                if (typeof window.google !== 'undefined' && typeof window.google.maps !== 'undefined') {
-                    clearInterval(intervalId);
-                    isScriptLoaded = true;
-                    resolve();
-                }
-            }, 100);
-            return;
-        }
+    mapLoadPromise = new Promise((resolve, reject) => {
+        if (document.getElementById(SCRIPT_ID)) {
+            if (typeof window.google !== 'undefined' && window.google.maps) {
+                 resolve();
+            }
+            // If script is there but google is not, it might be loading,
+            // we can wait for the callback.
+             window.initMap = () => {
+                resolve();
+             };
 
-        const script = document.createElement('script');
-        script.id = SCRIPT_ID;
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=visualization`;
-        script.async = true;
-        script.defer = true;
-        script.onload = () => {
-            isScriptLoaded = true;
-            resolve();
-        };
-        script.onerror = (error) => reject(error);
-        document.head.appendChild(script);
+        } else {
+            const script = document.createElement('script');
+            script.id = SCRIPT_ID;
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=visualization,marker&callback=initMap`;
+            script.async = true;
+            script.defer = true;
+            
+            window.initMap = () => {
+                resolve();
+            };
+
+            script.onerror = (error) => {
+                console.error("Failed to load Google Maps script:", error);
+                reject(error);
+                mapLoadPromise = null; // Reset promise on error
+            };
+
+            document.head.appendChild(script);
+        }
     });
-    
-    return mapPromise;
+    return mapLoadPromise;
 };
 
 interface MapViewProps {
-  center: Location;
-  zoom: number;
-  staff: Staff[];
-  incidents: Incident[];
-  layers: MapLayers;
-  onIncidentClick: (incident: Incident) => void;
+    center: Location;
+    zoom: number;
+    staff: Staff[];
+    incidents: Incident[];
+    layers: MapLayers;
+    onIncidentClick: (incident: Incident) => void;
 }
 
 export default function MapView({ center, zoom, staff, incidents, layers, onIncidentClick }: MapViewProps) {
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<google.maps.Map | null>(null);
-    const markersRef = useRef<{ [key: string]: google.maps.Marker }>({});
+    const markersRef = useRef<{ [key: string]: google.maps.marker.AdvancedMarkerElement | google.maps.Marker }>({});
     const heatmapRef = useRef<google.maps.visualization.HeatmapLayer | null>(null);
     const polygonsRef = useRef<google.maps.Polygon[]>([]);
-    
+    const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+
+    const [isMapInitialized, setIsMapInitialized] = useState(false);
+
     useEffect(() => {
         const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
         if (!apiKey) {
-            console.error("Google Maps API key is missing.");
+            console.error("Google Maps API key is missing. Please set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY environment variable.");
             return;
         }
 
-        const initMap = () => {
-             if (!mapRef.current || mapInstanceRef.current) return;
+        loadGoogleMapsScript(apiKey)
+            .then(() => {
+                if (!mapRef.current || mapInstanceRef.current) return;
 
-             const map = new google.maps.Map(mapRef.current, {
-                center,
-                zoom,
-                styles: mapStyles,
-                mapId: "drishti_dark_map",
-                gestureHandling: 'greedy',
-                disableDefaultUI: true,
-            });
-            mapInstanceRef.current = map;
+                const map = new google.maps.Map(mapRef.current, {
+                    center,
+                    zoom,
+                    styles: mapStyles,
+                    mapId: "drishti_dark_map",
+                    gestureHandling: 'greedy',
+                    disableDefaultUI: true,
+                });
+                mapInstanceRef.current = map;
+                
+                const heatmap = new google.maps.visualization.HeatmapLayer({
+                    map: map,
+                    radius: 40,
+                    opacity: 0.8,
+                });
+                heatmapRef.current = heatmap;
 
-            const heatmap = new google.maps.visualization.HeatmapLayer({
-                map: map,
-                radius: 40,
-                opacity: 0.8,
+                // Add Bengaluru marker and InfoWindow
+                const bengaluruMarker = new google.maps.Marker({
+                    position: { lat: 12.9716, lng: 77.5946 },
+                    map: map,
+                    title: 'Bengaluru, India'
+                });
+                
+                const infoWindow = new google.maps.InfoWindow({
+                    content: '<h2>Welcome to Bengaluru!</h2><p>The Garden City of India.</p>'
+                });
+                infoWindowRef.current = infoWindow;
+                
+                bengaluruMarker.addListener('click', () => {
+                    infoWindow.open(map, bengaluruMarker);
+                });
+                markersRef.current['bengaluru-marker'] = bengaluruMarker;
+
+
+                setIsMapInitialized(true);
+            })
+            .catch(error => {
+                console.error("Error loading Google Maps or initializing map:", error);
             });
-            heatmapRef.current = heatmap;
+
+    }, []); 
+
+    useEffect(() => {
+        const map = mapInstanceRef.current;
+        if (map && isMapInitialized) {
+            map.setCenter(center);
+            map.setZoom(zoom);
         }
-        
-        loadGoogleMapsScript(apiKey).then(initMap).catch(console.error);
+    }, [center, zoom, isMapInitialized]);
 
+    const createStaffMarkerElement = useCallback((s: Staff): HTMLElement => {
+        const container = document.createElement('div');
+        container.className = "flex items-center justify-center";
+        createRoot(container).render(
+            <Avatar className="border-2 border-blue-400">
+                <AvatarImage src={s.avatar} alt={s.name} data-ai-hint="person portrait" />
+                <AvatarFallback>{s.name.charAt(0)}</AvatarFallback>
+            </Avatar>
+        );
+        return container;
+    }, []);
+
+    const createIncidentMarkerElement = useCallback((i: Incident): HTMLElement => {
+        const container = document.createElement('div');
+        container.className = "relative";
+        createRoot(container).render(
+            <>
+                <IncidentIcon
+                    type={i.type}
+                    className="h-8 w-8 p-1.5 rounded-full bg-background border-2"
+                    style={{ borderColor: severityColors[i.severity] }}
+                    color={severityColors[i.severity]}
+                />
+                <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ backgroundColor: severityColors[i.severity] }}></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3" style={{ backgroundColor: severityColors[i.severity] }}></span>
+                </span>
+            </>
+        );
+        return container;
     }, []);
 
     useEffect(() => {
         const map = mapInstanceRef.current;
-        if (map) {
-            map.setCenter(center);
-            map.setZoom(zoom);
-        }
-    }, [center, zoom]);
+        if (!map || !isMapInitialized) return;
 
-    useEffect(() => {
-        const map = mapInstanceRef.current;
-        if (!map) return;
         const currentMarkers = markersRef.current;
-        const newMarkers: { [key: string]: google.maps.Marker } = {};
+        const newMarkers: { [key: string]: google.maps.marker.AdvancedMarkerElement | google.maps.Marker } = {
+            'bengaluru-marker': currentMarkers['bengaluru-marker']
+        };
+        const markersToKeep = new Set<string>(['bengaluru-marker']);
 
-        // Hide all current markers before deciding which ones to show
-        Object.values(currentMarkers).forEach(marker => marker.setMap(null));
-
-        // Update Staff Markers
-        if(layers.staff) {
+        if (layers.staff) {
             staff.forEach(s => {
                 const markerId = `staff-${s.id}`;
-                if (currentMarkers[markerId]) {
-                    currentMarkers[markerId].setPosition(s.location);
-                    currentMarkers[markerId].setMap(map);
-                    newMarkers[markerId] = currentMarkers[markerId];
+                markersToKeep.add(markerId);
+                let marker = currentMarkers[markerId] as google.maps.marker.AdvancedMarkerElement;
+
+                if (marker) {
+                    marker.position = s.location;
+                    marker.map = map;
                 } else {
-                    const container = document.createElement('div');
-                    createRoot(container).render(
-                        <Avatar className="border-2 border-blue-400">
-                          <AvatarImage src={s.avatar} alt={s.name} data-ai-hint="person portrait"/>
-                          <AvatarFallback>{s.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                    );
-                    newMarkers[markerId] = new google.maps.Marker({
+                    marker = new google.maps.marker.AdvancedMarkerElement({
                         position: s.location,
                         map: map,
-                        icon: {
-                           url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(container.innerHTML)}`,
-                           scaledSize: new google.maps.Size(40, 40)
-                        }
+                        content: createStaffMarkerElement(s),
+                        title: s.name,
+                    });
+                    marker.addListener('click', () => {
+                        console.log('Staff clicked:', s.name);
                     });
                 }
+                newMarkers[markerId] = marker;
             });
         }
-        
-        // Update Incident Markers
+
         if (layers.incidents) {
             incidents.forEach(i => {
                 const markerId = `incident-${i.id}`;
-                if (currentMarkers[markerId]) {
-                    currentMarkers[markerId].setPosition(i.location);
-                    currentMarkers[markerId].setMap(map);
-                    newMarkers[markerId] = currentMarkers[markerId];
-                } else {
-                    const container = document.createElement('div');
-                    createRoot(container).render(
-                         <div className="relative">
-                            <IncidentIcon
-                                type={i.type}
-                                className="h-8 w-8 p-1.5 rounded-full bg-background border-2"
-                                style={{ borderColor: severityColors[i.severity] }}
-                                color={severityColors[i.severity]}
-                            />
-                            <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{backgroundColor: severityColors[i.severity]}}></span>
-                                <span className="relative inline-flex rounded-full h-3 w-3" style={{backgroundColor: severityColors[i.severity]}}></span>
-                            </span>
-                        </div>
-                    );
+                markersToKeep.add(markerId);
+                let marker = currentMarkers[markerId] as google.maps.marker.AdvancedMarkerElement;
 
-                    const marker = new google.maps.Marker({
+                if (marker) {
+                    marker.position = i.location;
+                    marker.map = map;
+                } else {
+                    marker = new google.maps.marker.AdvancedMarkerElement({
                         position: i.location,
                         map: map,
-                        icon: {
-                           url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(container.innerHTML)}`,
-                           scaledSize: new google.maps.Size(40, 40),
-                        }
+                        content: createIncidentMarkerElement(i),
+                        title: `${i.type} Incident (${i.severity})`,
                     });
                     marker.addListener('click', () => onIncidentClick(i));
-                    newMarkers[markerId] = marker;
                 }
+                newMarkers[markerId] = marker;
             });
         }
 
+        Object.keys(currentMarkers).forEach(markerId => {
+            if (!markersToKeep.has(markerId)) {
+                (currentMarkers[markerId] as any).map = null;
+            }
+        });
+
         markersRef.current = newMarkers;
 
-    }, [staff, incidents, layers.staff, layers.incidents, onIncidentClick]);
-    
+    }, [staff, incidents, layers.staff, layers.incidents, onIncidentClick, isMapInitialized, createStaffMarkerElement, createIncidentMarkerElement]);
+
     useEffect(() => {
         const heatmap = heatmapRef.current;
         const map = mapInstanceRef.current;
-        if (heatmap && map) {
+        if (heatmap && map && isMapInitialized) {
             if (layers.heatmap) {
-                const allPoints = [...staff.map(s => s.location), ...incidents.map(i => i.location)];
+                const allPoints = [...staff.map(s => new google.maps.LatLng(s.location.lat, s.location.lng)),
+                                   ...incidents.map(i => new google.maps.LatLng(i.location.lat, i.location.lng))];
+                
                 if (allPoints.length > 0) {
-                    const randomPoints = Array.from({ length: 100 }, () => {
-                        const point = allPoints[Math.floor(Math.random() * allPoints.length)];
-                        return new google.maps.LatLng(
-                            point.lat + (Math.random() - 0.5) * 0.005,
-                            point.lng + (Math.random() - 0.5) * 0.005,
-                        );
-                    });
-                    heatmap.setData(randomPoints);
+                    heatmap.setData(allPoints);
                 } else {
                     heatmap.setData([]);
                 }
@@ -238,26 +278,31 @@ export default function MapView({ center, zoom, staff, incidents, layers, onInci
                 heatmap.setMap(null);
             }
         }
-    }, [layers.heatmap, staff, incidents]);
+    }, [layers.heatmap, staff, incidents, isMapInitialized]);
 
     useEffect(() => {
         const map = mapInstanceRef.current;
-        if (!map) return;
-         const bottleneckZones = [
-            [
-                { lat: 37.776, lng: -122.421 }, { lat: 37.777, lng: -122.419 },
-                { lat: 37.775, lng: -122.418 }, { lat: 37.774, lng: -122.420 },
-            ],
-            [
-                { lat: 37.773, lng: -122.425 }, { lat: 37.774, lng: -122.423 },
-                { lat: 37.772, lng: -122.422 }, { lat: 37.771, lng: -122.424 },
-            ]
-        ];
+        if (!map || !isMapInitialized) return;
 
         polygonsRef.current.forEach(p => p.setMap(null));
         polygonsRef.current = [];
 
         if (layers.bottlenecks) {
+            const bottleneckZones = [
+                [
+                    { lat: 12.9760, lng: 77.5930 },
+                    { lat: 12.9780, lng: 77.6000 },
+                    { lat: 12.9730, lng: 77.6020 },
+                    { lat: 12.9710, lng: 77.5950 },
+                ],
+                [
+                    { lat: 12.9350, lng: 77.6100 },
+                    { lat: 12.9380, lng: 77.6150 },
+                    { lat: 12.9330, lng: 77.6180 },
+                    { lat: 12.9300, lng: 77.6130 },
+                ]
+            ];
+
             bottleneckZones.forEach(zone => {
                 const polygon = new google.maps.Polygon({
                     paths: zone,
@@ -271,7 +316,9 @@ export default function MapView({ center, zoom, staff, incidents, layers, onInci
                 polygonsRef.current.push(polygon);
             });
         }
-    }, [layers.bottlenecks]);
+    }, [layers.bottlenecks, isMapInitialized]);
 
-    return <div ref={mapRef} className="w-full h-full" />;
+    return (
+        <div ref={mapRef} className="w-full h-full" style={{ minHeight: '300px' }} />
+    );
 }

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -11,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import AiChatWidget from './ai-chat-widget';
 
-const MOCK_CENTER: Location = { lat: 37.7749, lng: -122.4194 }; // San Francisco
+const MOCK_CENTER: Location = { lat: 12.9716, lng: 77.5946 }; // Bengaluru
 
 const generateRandomPoint = (center: Location, radius: number) => {
   const y0 = center.lat;
