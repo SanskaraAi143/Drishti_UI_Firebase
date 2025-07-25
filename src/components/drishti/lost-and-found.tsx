@@ -16,7 +16,7 @@ import type { FindPersonOutput } from '@/ai/flows/lost-and-found-flow';
 
 const LostAndFoundSchema = z.object({
   name: z.string().optional(),
-  photo: z.instanceof(FileList).refine(files => files.length > 0, 'An image is required.'),
+  photo: z.any().refine(files => typeof window === 'undefined' || (files instanceof FileList && files.length > 0), 'An image is required.'),
 });
 type LostAndFoundForm = z.infer<typeof LostAndFoundSchema>;
 
@@ -128,7 +128,7 @@ export default function LostAndFound() {
                 <Upload className="mr-2 h-4 w-4" />
                 {preview ? 'Change Photo' : 'Upload Photo'}
               </Button>
-              {form.formState.errors.photo && <p className="text-sm font-medium text-destructive">{form.formState.errors.photo.message}</p>}
+              {form.formState.errors.photo && <p className="text-sm font-medium text-destructive">{(form.formState.errors.photo as any).message}</p>}
             </div>
             {preview && (
               <div className="flex justify-center">

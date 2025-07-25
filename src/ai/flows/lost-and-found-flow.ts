@@ -10,7 +10,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
-export const FindPersonInputSchema = z.object({
+const FindPersonInputSchema = z.object({
   photoDataUri: z
     .string()
     .describe(
@@ -20,7 +20,7 @@ export const FindPersonInputSchema = z.object({
 });
 export type FindPersonInput = z.infer<typeof FindPersonInputSchema>;
 
-export const FindPersonOutputSchema = z.object({
+const FindPersonOutputSchema = z.object({
   found: z.boolean().describe('Whether a matching person was found.'),
   message: z.string().describe('A message describing the result.'),
   lastSeen: z
