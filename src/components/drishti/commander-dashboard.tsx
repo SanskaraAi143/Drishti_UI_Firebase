@@ -6,6 +6,7 @@ import Sidebar from '@/components/drishti/sidebar';
 import MapView from '@/components/drishti/map-view';
 import IncidentModal from '@/components/drishti/incident-modal';
 import { useToast } from '@/hooks/use-toast';
+import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 
 const MOCK_CENTER: Location = { lat: 37.7749, lng: -122.4194 }; // San Francisco
 
@@ -103,30 +104,30 @@ export default function CommanderDashboard() {
   };
 
   return (
-    <div className="flex h-full w-full">
-      <Sidebar
-        alerts={alerts}
-        staff={staff}
-        onAlertClick={handleAlertClick}
-        onStaffClick={handleStaffClick}
-        mapLayers={mapLayers}
-        onToggleLayer={handleToggleLayer}
-      />
-      <main className="flex-1">
-        <MapView
-          center={mapCenter}
-          zoom={mapZoom}
+    <SidebarProvider>
+        <Sidebar
+          alerts={alerts}
           staff={staff}
-          incidents={incidents}
-          layers={mapLayers}
-          onIncidentClick={handleAlertClick}
+          onAlertClick={handleAlertClick}
+          onStaffClick={handleStaffClick}
+          mapLayers={mapLayers}
+          onToggleLayer={handleToggleLayer}
         />
-      </main>
-      <IncidentModal
-        incident={selectedIncident}
-        isOpen={!!selectedIncident}
-        onOpenChange={(isOpen) => !isOpen && setSelectedIncident(null)}
-      />
-    </div>
+        <SidebarInset>
+            <MapView
+              center={mapCenter}
+              zoom={mapZoom}
+              staff={staff}
+              incidents={incidents}
+              layers={mapLayers}
+              onIncidentClick={handleAlertClick}
+            />
+        </SidebarInset>
+        <IncidentModal
+          incident={selectedIncident}
+          isOpen={!!selectedIncident}
+          onOpenChange={(isOpen) => !isOpen && setSelectedIncident(null)}
+        />
+    </SidebarProvider>
   );
 }
