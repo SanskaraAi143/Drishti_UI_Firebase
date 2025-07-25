@@ -96,7 +96,7 @@ const severityColors = {
 };
 
 
-const HeatmapLayer = ({ locations }: { locations: Location[] }) => {
+const HeatmapLayer = ({ locations, enabled }: { locations: Location[], enabled: boolean }) => {
   const map = useMap();
   const visualization = useMapsLibrary('visualization');
   const [heatmap, setHeatmap] = useState<google.maps.visualization.HeatmapLayer | null>(null);
@@ -104,20 +104,35 @@ const HeatmapLayer = ({ locations }: { locations: Location[] }) => {
   useEffect(() => {
     if (!map || !visualization) return;
 
-    const heatmapData = locations.map(loc => new google.maps.LatLng(loc.lat, loc.lng));
-    
     if (!heatmap) {
       const newHeatmap = new visualization.HeatmapLayer({
         map,
-        data: heatmapData,
+        data: [],
       });
       newHeatmap.set('radius', 40);
       newHeatmap.set('opacity', 0.8);
       setHeatmap(newHeatmap);
-    } else {
-      heatmap.setData(heatmapData);
     }
-  }, [map, visualization, locations, heatmap]);
+    
+    // Cleanup on unmount
+    return () => {
+        if (heatmap) {
+            heatmap.setMap(null);
+        }
+    }
+  }, [map, visualization, heatmap]);
+
+  useEffect(() => {
+    if (heatmap) {
+      if (enabled) {
+        const heatmapData = locations.map(loc => new google.maps.LatLng(loc.lat, loc.lng));
+        heatmap.setData(heatmapData);
+        heatmap.setMap(map);
+      } else {
+        heatmap.setMap(null);
+      }
+    }
+  }, [enabled, locations, heatmap, map]);
   
   return null;
 }
@@ -220,7 +235,7 @@ export default function MapView({ center, zoom, staff, incidents, layers, onInci
       >
         {layers.staff && staff.map(s => <MemoizedStaffMarker key={s.id} staff={s} onIncidentClick={onIncidentClick} />)}
         {layers.incidents && incidents.map(i => <MemoizedIncidentMarker key={i.id} incident={i} onIncidentClick={onIncidentClick} />)}
-        {layers.heatmap && <HeatmapLayer locations={heatmapLocations} />}
+        <HeatmapLayer locations={heatmapLocations} enabled={layers.heatmap} />
         {layers.bottlenecks && <BottlenecksLayer />}
       </Map>
     </APIProvider>
