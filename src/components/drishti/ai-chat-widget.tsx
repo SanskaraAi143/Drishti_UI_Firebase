@@ -1,0 +1,172 @@
+'use client';
+
+import { useState, useRef, useEffect } from 'react';
+import { useForm, type SubmitHandler } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { queryIncidentAnomalies } from '@/ai/flows/query-incident-anomalies';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Bot, User, Send, Loader, Sparkles } from 'lucide-react';
+import type { Message } from '@/lib/types';
+import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+
+const QuerySchema = z.object({
+  prompt: z.string().min(1, 'Please enter a question.'),
+});
+type QueryForm = z.infer<typeof QuerySchema>;
+
+const DEFAULT_QUESTIONS = [
+    "Summarize all high-severity alerts in the last hour.",
+    "Is there unusual crowd activity near the main stage?",
+    "Show me available medical staff near Zone C.",
+    "What are the current weather conditions?"
+]
+
+export default function AiChatWidget() {
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: 1,
+      role: 'assistant',
+      text: 'How can I assist you? Ask me about security concerns or incident anomalies in any zone.',
+    },
+  ]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
+
+  const form = useForm<QueryForm>({
+    resolver: zodResolver(QuerySchema),
+    defaultValues: { prompt: '' },
+  });
+
+  useEffect(() => {
+    // Auto-scroll to bottom
+    if (scrollAreaRef.current) {
+      const viewport = scrollAreaRef.current.querySelector('div[data-radix-scroll-area-viewport]');
+      if (viewport) {
+        viewport.scrollTop = viewport.scrollHeight;
+      }
+    }
+  }, [messages]);
+
+  const processQuery = async (prompt: string) => {
+    setIsSubmitting(true);
+    const userMessage: Message = { id: Date.now(), role: 'user', text: prompt };
+    const loadingMessage: Message = { id: Date.now() + 1, role: 'assistant', text: '', isLoading: true };
+
+    setMessages(prev => [...prev, userMessage, loadingMessage]);
+    form.reset();
+
+    try {
+      const result = await queryIncidentAnomalies({ query: prompt });
+      const assistantMessage: Message = { id: Date.now() + 2, role: 'assistant', text: result.summary };
+      setMessages(prev => [...prev.slice(0, -1), assistantMessage]);
+    } catch (error) {
+      console.error("AI query failed:", error);
+      const errorMessage: Message = { id: Date.now() + 2, role: 'assistant', text: "Sorry, I couldn't process your request." };
+      setMessages(prev => [...prev.slice(0, -1), errorMessage]);
+      toast({
+        variant: "destructive",
+        title: "AI Query Error",
+        description: "There was a problem communicating with the AI agent.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const onSubmit: SubmitHandler<QueryForm> = (data) => {
+    processQuery(data.prompt);
+  };
+  
+  const handleDefaultQuestionClick = (question: string) => {
+    form.setValue('prompt', question);
+    processQuery(question);
+  };
+
+
+  return (
+    <div className="fixed bottom-6 right-6 z-50">
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button size="icon" className="rounded-full w-14 h-14 shadow-lg">
+            <Bot className="w-7 h-7" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent 
+            side="top" 
+            align="end" 
+            className="w-[400px] h-[600px] p-0 flex flex-col"
+            sideOffset={16}
+        >
+            <div className="flex items-center p-4 border-b">
+                <Sparkles className="w-6 h-6 mr-3 text-accent"/>
+                <h3 className="font-headline text-lg font-semibold">AI Assistant</h3>
+            </div>
+            <ScrollArea className="flex-grow p-4" ref={scrollAreaRef}>
+              <div className="space-y-6">
+                {messages.map((message) => (
+                  <div key={message.id} className={cn('flex items-start gap-3', message.role === 'user' ? 'justify-end' : 'justify-start')}>
+                    {message.role === 'assistant' && (
+                      <Avatar className="w-8 h-8">
+                        <AvatarFallback className="bg-primary text-primary-foreground"><Bot className="w-5 h-5" /></AvatarFallback>
+                      </Avatar>
+                    )}
+                    <div className={cn('max-w-[80%] rounded-lg px-4 py-2 text-sm', message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>
+                      {message.isLoading ? (
+                        <div className="flex items-center space-x-2">
+                          <Loader className="w-4 h-4 animate-spin" />
+                          <span>Thinking...</span>
+                        </div>
+                      ) : (
+                        <p>{message.text}</p>
+                      )}
+                    </div>
+                    {message.role === 'user' && (
+                      <Avatar className="w-8 h-8">
+                        <AvatarFallback><User className="w-5 h-5" /></AvatarFallback>
+                      </Avatar>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+            <div className="p-4 border-t">
+                {messages.length <= 1 && (
+                    <div className="grid grid-cols-2 gap-2 mb-4">
+                        {DEFAULT_QUESTIONS.map((q) => (
+                            <Button 
+                                key={q}
+                                variant="outline" 
+                                size="sm" 
+                                className="h-auto text-wrap text-left justify-start"
+                                onClick={() => handleDefaultQuestionClick(q)}
+                                disabled={isSubmitting}
+                            >
+                                {q}
+                            </Button>
+                        ))}
+                    </div>
+                )}
+                <form onSubmit={form.handleSubmit(onSubmit)} className="flex items-center gap-2">
+                    <Input
+                        {...form.register('prompt')}
+                        placeholder="Ask the AI..."
+                        autoComplete="off"
+                        disabled={isSubmitting}
+                    />
+                    <Button type="submit" size="icon" disabled={isSubmitting}>
+                        {isSubmitting ? <Loader className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    </Button>
+                </form>
+            </div>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}

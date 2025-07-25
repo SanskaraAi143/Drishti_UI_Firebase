@@ -8,7 +8,6 @@ import { Switch } from '@/components/ui/switch';
 import { Bell, Users, Bot, Layers, BrainCircuit, Users2, ShieldAlert, Video, Map, UserSearch } from 'lucide-react';
 import AlertsFeed from './alerts-feed';
 import StaffView from './staff-view';
-import AiQuery from './ai-query';
 import { DrishtiLogo } from '../icons/drishti-logo';
 import { Sidebar as SidebarPrimitive, SidebarContent, SidebarHeader, SidebarTrigger } from '@/components/ui/sidebar';
 
@@ -55,10 +54,9 @@ export default function Sidebar({
       
       <SidebarContent>
         <Tabs defaultValue="alerts" className="flex-grow flex flex-col overflow-hidden" onValueChange={handleTabChange}>
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="alerts"><Bell className="mr-2 h-4 w-4"/>Alerts</TabsTrigger>
             <TabsTrigger value="staff"><Users className="mr-2 h-4 w-4"/>Staff</TabsTrigger>
-            <TabsTrigger value="ai"><Bot className="mr-2 h-4 w-4"/>AI</TabsTrigger>
             <TabsTrigger value="cameras"><Video className="mr-2 h-4 w-4"/>Cameras</TabsTrigger>
             <TabsTrigger value="lost-and-found"><UserSearch className="mr-2 h-4 w-4"/>Find</TabsTrigger>
           </TabsList>
@@ -69,9 +67,6 @@ export default function Sidebar({
           </TabsContent>
           <TabsContent value="staff" className="flex-grow overflow-auto mt-4">
             <StaffView staff={staff} onStaffClick={onStaffClick} />
-          </TabsContent>
-          <TabsContent value="ai" className="flex-grow flex flex-col overflow-auto mt-4">
-            <AiQuery />
           </TabsContent>
           {/* The content for 'cameras' and 'lost-and-found' are handled in commander-dashboard */}
           <TabsContent value="cameras" className="mt-4"/>

@@ -9,6 +9,7 @@ import CameraView from '@/components/drishti/camera-view';
 import LostAndFound from '@/components/drishti/lost-and-found';
 import { useToast } from '@/hooks/use-toast';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
+import AiChatWidget from './ai-chat-widget';
 
 const MOCK_CENTER: Location = { lat: 37.7749, lng: -122.4194 }; // San Francisco
 
@@ -143,6 +144,7 @@ export default function CommanderDashboard() {
         />
         <SidebarInset>
             {renderActiveView()}
+             <AiChatWidget />
         </SidebarInset>
         <IncidentModal
           incident={selectedIncident}
