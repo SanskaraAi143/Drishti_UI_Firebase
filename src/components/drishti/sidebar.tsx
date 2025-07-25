@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Bell, Users, Bot, Layers, BrainCircuit, Users2, ShieldAlert, Video, Map, UserSearch } from 'lucide-react';
+import { Bell, Users, Layers, BrainCircuit, Users2, ShieldAlert, Video, UserSearch } from 'lucide-react';
 import AlertsFeed from './alerts-feed';
 import StaffView from './staff-view';
 import { DrishtiLogo } from '../icons/drishti-logo';

@@ -132,6 +132,7 @@ export default function CommanderDashboard() {
 
   return (
     <SidebarProvider>
+      <div className="flex h-screen w-screen overflow-hidden">
         <Sidebar
           alerts={alerts}
           staff={staff}
@@ -151,6 +152,7 @@ export default function CommanderDashboard() {
           isOpen={!!selectedIncident}
           onOpenChange={(isOpen) => !isOpen && setSelectedIncident(null)}
         />
+      </div>
     </SidebarProvider>
   );
 }
