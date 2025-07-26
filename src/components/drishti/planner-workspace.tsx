@@ -1,7 +1,7 @@
 
 'use client';
 import { useState, useEffect } from 'react';
-import { APIProvider, Map, AdvancedMarker, Polygon, useMap } from '@vis.gl/react-google-maps';
+import { APIProvider, Map, AdvancedMarker, useMap } from '@vis.gl/react-google-maps';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Camera, Barricade, Tent, Ambulance, TowerControl, Pin, Lightbulb } from 'lucide-react';
+import { Camera, Construction, Tent, Ambulance, TowerControl, Pin, Lightbulb } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const MOCK_CENTER = { lat: 12.9716, lng: 77.5946 };
@@ -24,7 +24,7 @@ const MOCK_CENTER = { lat: 12.9716, lng: 77.5946 };
 const assetLibrary = [
     { id: 'fixed-camera', name: 'Fixed Camera', icon: Camera },
     { id: 'ptz-camera', name: '360° PTZ Camera', icon: TowerControl },
-    { id: 'barricade', name: 'Barricade', icon: Barricade },
+    { id: 'barricade', name: 'Barricade', icon: Construction },
     { id: 'entrance', name: 'Entrance Gate', icon: Pin },
     { id: 'command-post', name: 'Command Post', icon: TowerControl },
     { id: 'first-aid', name: 'First Aid Tent', icon: Tent },
@@ -56,6 +56,33 @@ const PlacedAssetMarker = ({ asset, onClick }: { asset: any; onClick: () => void
         </AdvancedMarker>
     );
 };
+
+const Polygon = (props: google.maps.PolygonOptions) => {
+    const map = useMap();
+    const [polygon, setPolygon] = useState<google.maps.Polygon | null>(null);
+
+    useEffect(() => {
+        if (!map) return;
+        if (!polygon) {
+            setPolygon(new google.maps.Polygon());
+        }
+        return () => {
+            if (polygon) {
+                polygon.setMap(null);
+            }
+        };
+    }, [map, polygon]);
+
+    useEffect(() => {
+        if (polygon) {
+            polygon.setOptions(props);
+            polygon.setMap(map);
+        }
+    }, [polygon, props, map]);
+
+    return null;
+};
+
 
 export function PlannerWorkspace({ planId }: { planId: string }) {
     const [planData, setPlanData] = useState<any>(null);
