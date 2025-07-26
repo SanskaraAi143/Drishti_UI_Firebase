@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow, useMap } from '@vis.gl/react-google-maps';
+import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 import type { Location, Staff, Incident, MapLayers } from '@/lib/types';
 import { IncidentIcon } from '../icons/incident-icons';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
@@ -89,15 +89,32 @@ const BengaluruMarker = () => {
 
 const MapLayersComponent = ({ layers, staff, incidents }: Pick<MapViewProps, 'layers' | 'staff' | 'incidents'>) => {
     const map = useMap();
+    const visualizationLibrary = useMapsLibrary('visualization');
+    const [heatmap, setHeatmap] = React.useState<google.maps.visualization.HeatmapLayer | null>(null);
 
     React.useEffect(() => {
-        if (!map) return;
-        
-        // This is a placeholder for heatmap and bottleneck layers as @vis.gl/react-google-maps doesn't have direct equivalents.
-        // For a production app, you would integrate a library like deck.gl for these overlays.
-        console.log("Map layers updated:", layers);
+        if (!map || !visualizationLibrary) return;
 
-    }, [map, layers, staff, incidents]);
+        if (!heatmap) {
+            const heatmapData = incidents.map(incident => new google.maps.LatLng(incident.location.lat, incident.location.lng));
+            const newHeatmap = new visualizationLibrary.HeatmapLayer({
+                data: heatmapData,
+                map: map,
+                radius: 40
+            });
+            setHeatmap(newHeatmap);
+        } else {
+            const heatmapData = incidents.map(incident => new google.maps.LatLng(incident.location.lat, incident.location.lng));
+            heatmap.setData(heatmapData);
+        }
+
+    }, [map, visualizationLibrary, incidents, heatmap]);
+    
+    React.useEffect(() => {
+        if(heatmap) {
+            heatmap.setMap(layers.heatmap ? map : null);
+        }
+    }, [layers.heatmap, heatmap, map])
     
     return null;
 }
