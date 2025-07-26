@@ -17,7 +17,7 @@ const GenerateSafetyPlanInputSchema = z.object({
   vipPresence: z.boolean().describe('Whether high-profile individuals (VIPs) will be present.'),
   eventSentiment: z.string().describe('The overall public sentiment towards the event (e.g., Celebratory, Controversial).'),
   securityConcerns: z.array(z.string()).describe('A list of primary, anticipated security concerns.'),
-  mapImageUrl: z.string().url().describe('A static map image URL showing the event geofence.'),
+  mapImageUrl: z.string().describe('A static map image URL showing the event geofence.'),
 });
 export type GenerateSafetyPlanInput = z.infer<typeof GenerateSafetyPlanInputSchema>;
 
