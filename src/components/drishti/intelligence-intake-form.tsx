@@ -1,7 +1,7 @@
 
 'use client';
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -23,6 +23,7 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { APIProvider, Map, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 import { useToast } from '@/hooks/use-toast';
+import { Loader } from 'lucide-react';
 
 const MOCK_CENTER = { lat: 12.9716, lng: 77.5946 }; // Bengaluru
 
@@ -49,13 +50,29 @@ const securityConcernsList = [
     { id: 'perimeterBreach', label: 'Unsanctioned Access / Perimeter Breach' },
 ]
 
-const GeofenceMap = ({ onGeofenceChange }: { onGeofenceChange: (path: any) => void }) => {
+const GeofenceMap = ({ onGeofenceChange, initialGeofence }: { onGeofenceChange: (path: any) => void; initialGeofence?: any[] }) => {
     const map = useMap();
     const drawingLibrary = useMapsLibrary('drawing');
     const [drawingManager, setDrawingManager] = useState<google.maps.drawing.DrawingManager | null>(null);
+    const [currentPolygon, setCurrentPolygon] = useState<google.maps.Polygon | null>(null);
 
     useEffect(() => {
         if (!map || !drawingLibrary) return;
+
+        if (initialGeofence && map && !currentPolygon) {
+            const polygon = new google.maps.Polygon({
+                paths: initialGeofence,
+                fillColor: '#4299E1',
+                fillOpacity: 0.3,
+                strokeWeight: 3,
+                strokeColor: '#4299E1',
+                clickable: false,
+                editable: true,
+                zIndex: 1,
+            });
+            polygon.setMap(map);
+            setCurrentPolygon(polygon);
+        }
 
         const manager = new drawingLibrary.DrawingManager({
             map,
@@ -78,9 +95,13 @@ const GeofenceMap = ({ onGeofenceChange }: { onGeofenceChange: (path: any) => vo
         setDrawingManager(manager);
 
         google.maps.event.addListener(manager, 'polygoncomplete', (polygon: google.maps.Polygon) => {
+            if(currentPolygon) {
+                currentPolygon.setMap(null);
+            }
             const path = polygon.getPath().getArray().map(p => p.toJSON());
             onGeofenceChange(path);
-            manager.setDrawingMode(null); // Exit drawing mode
+            setCurrentPolygon(polygon);
+            manager.setDrawingMode(null);
         });
 
         return () => {
@@ -88,17 +109,21 @@ const GeofenceMap = ({ onGeofenceChange }: { onGeofenceChange: (path: any) => vo
               manager.setMap(null);
             }
         };
-    }, [map, drawingLibrary, onGeofenceChange]);
+    }, [map, drawingLibrary, onGeofenceChange, initialGeofence, currentPolygon]);
 
     return null;
 }
 
 export function IntelligenceIntakeForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const planIdToEdit = searchParams.get('from');
+
   const { toast } = useToast();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const [isLoading, setIsLoading] = useState(true);
 
-  const { register, handleSubmit, control, watch, setValue, formState: { errors, isValid } } = useForm({
+  const { register, handleSubmit, control, watch, setValue, formState: { errors, isValid }, reset } = useForm({
     resolver: zodResolver(intakeSchema),
     mode: 'onChange',
     defaultValues: {
@@ -114,20 +139,40 @@ export function IntelligenceIntakeForm() {
     }
   });
 
+  useEffect(() => {
+    if (planIdToEdit) {
+      try {
+        const savedDataStr = localStorage.getItem(`drishti-plan-${planIdToEdit}`);
+        if (savedDataStr) {
+          const savedData = JSON.parse(savedDataStr);
+          reset(savedData);
+        }
+      } catch (e) {
+        console.error("Failed to load plan data:", e);
+        toast({
+          variant: "destructive",
+          title: "Failed to load plan data",
+          description: "Could not retrieve existing plan details.",
+        });
+      }
+    }
+    setIsLoading(false);
+  }, [planIdToEdit, reset, toast]);
+
+
   const vipPresence = watch('vipPresence');
+  const geofenceValue = watch('geofence');
 
   const onSubmit = (data: z.infer<typeof intakeSchema>) => {
     console.log(data);
-    const newPlanId = `plan-${Date.now()}`;
-    // In a real app, you would save this data to a backend.
-    // We'll simulate this by storing it in localStorage for now.
+    const planId = planIdToEdit || `plan-${Date.now()}`;
     try {
-        localStorage.setItem(`drishti-plan-${newPlanId}`, JSON.stringify(data));
+        localStorage.setItem(`drishti-plan-${planId}`, JSON.stringify(data));
         toast({
-            title: "Plan Created Successfully",
+            title: planIdToEdit ? "Plan Updated" : "Plan Created Successfully",
             description: "Proceeding to the Planner Workspace.",
         });
-        router.push(`/planning/${newPlanId}/edit`);
+        router.push(`/planning/${planId}/edit`);
     } catch (e) {
         toast({
             variant: "destructive",
@@ -140,16 +185,25 @@ export function IntelligenceIntakeForm() {
   if (!apiKey) {
       return <div>API Key for Google Maps is missing.</div>
   }
+  
+  if (isLoading) {
+    return (
+        <div className="flex justify-center items-center h-96">
+            <Loader className="w-8 h-8 animate-spin" />
+            <p className="ml-4">Loading Plan Data...</p>
+        </div>
+    )
+  }
 
   return (
     <Card className="max-w-4xl mx-auto">
       <CardHeader>
-        <CardTitle className="text-2xl font-bold">New Safety Plan: Intelligence Intake</CardTitle>
+        <CardTitle className="text-2xl font-bold">{ planIdToEdit ? 'Edit Plan' : 'New Safety Plan'}: Intelligence Intake</CardTitle>
         <CardDescription>Gather foundational intelligence to build a data-driven security plan.</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)}>
-          <Accordion type="multiple" defaultValue={['item-1']} className="w-full">
+          <Accordion type="multiple" defaultValue={['item-1', 'item-2', 'item-3']} className="w-full">
             <AccordionItem value="item-1">
               <AccordionTrigger>Section 1: Event Fundamentals</AccordionTrigger>
               <AccordionContent className="space-y-4 pt-4">
@@ -164,7 +218,7 @@ export function IntelligenceIntakeForm() {
                     name="eventType"
                     control={control}
                     render={({ field }) => (
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select an event type" />
                         </SelectTrigger>
@@ -204,7 +258,10 @@ export function IntelligenceIntakeForm() {
                                 gestureHandling={'greedy'}
                                 mapId={'drishti_dark_map'}
                             >
-                               <GeofenceMap onGeofenceChange={(path) => setValue('geofence', path, { shouldValidate: true })} />
+                               <GeofenceMap 
+                                  onGeofenceChange={(path) => setValue('geofence', path, { shouldValidate: true })}
+                                  initialGeofence={geofenceValue}
+                               />
                             </Map>
                         </APIProvider>
                     </div>
@@ -217,7 +274,7 @@ export function IntelligenceIntakeForm() {
                         control={control}
                         render={({ field }) => (
                             <Slider
-                                defaultValue={[field.value]}
+                                value={[field.value]}
                                 onValueChange={(value) => field.onChange(value[0])}
                                 min={100}
                                 max={100000}
@@ -254,7 +311,7 @@ export function IntelligenceIntakeForm() {
                         name="eventSentiment"
                         control={control}
                         render={({ field }) => (
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value}>
                                 <SelectTrigger><SelectValue placeholder="Select sentiment" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="celebratory">Celebratory</SelectItem>
@@ -298,7 +355,7 @@ export function IntelligenceIntakeForm() {
           </Accordion>
           <div className="mt-8 flex justify-end">
             <Button type="submit" size="lg" disabled={!isValid}>
-              Save & Proceed to Planner Workspace
+              { planIdToEdit ? 'Update Plan' : 'Save & Proceed to Planner Workspace' }
             </Button>
           </div>
         </form>

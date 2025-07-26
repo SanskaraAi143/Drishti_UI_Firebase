@@ -38,9 +38,9 @@ export function PlanningHeader({ currentStep, planId }: PlanningHeaderProps) {
               className={cn(
                 "rounded-md",
                 currentStep > step.number && "text-accent",
-                currentStep < step.number && "text-muted-foreground pointer-events-none"
+                (currentStep < step.number || !planId) && step.number > 2 && "text-muted-foreground pointer-events-none"
               )}
-              disabled={currentStep < step.number}
+              disabled={(currentStep < step.number || !planId) && step.number > 2}
               asChild
             >
               <Link href={step.href}>
