@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import type { Camera } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -11,17 +11,17 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
 import Image from 'next/image';
-import { Expand, Video } from 'lucide-react';
+import { Expand } from 'lucide-react';
 import { Button } from '../ui/button';
 
 interface CameraViewProps {
     cameras: Camera[];
+    isCommanderAtJunctionA: boolean;
 }
 
-export default function CameraView({ cameras }: CameraViewProps) {
+export default function CameraView({ cameras, isCommanderAtJunctionA }: CameraViewProps) {
   const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
 
   return (
@@ -40,6 +40,22 @@ export default function CameraView({ cameras }: CameraViewProps) {
             </CardHeader>
             <CardContent className="p-0">
               <AspectRatio ratio={16 / 9} className="bg-muted">
+                {camera.id === 'cam-a' ? (
+                  isCommanderAtJunctionA ? (
+                    <div className="flex items-center justify-center h-full">
+                      <p className="text-lg font-semibold">Commander Arrived</p>
+                    </div>
+                  ) : (
+                    <video
+                      src="https://storage.googleapis.com/event_safety/Crowd%20Detection.mp4"
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      className="w-full h-full object-cover"
+                    />
+                  )
+                ) : (
                   <Image
                     src={camera.streamUrl}
                     alt={camera.name}
@@ -47,6 +63,7 @@ export default function CameraView({ cameras }: CameraViewProps) {
                     className="object-cover"
                     data-ai-hint="security camera"
                   />
+                )}
               </AspectRatio>
             </CardContent>
           </Card>

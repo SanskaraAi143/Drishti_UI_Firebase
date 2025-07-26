@@ -72,6 +72,13 @@ function Dashboard() {
   const [mapCenter, setMapCenter] = useState<Location>(MOCK_CENTER);
   const [mapZoom, setMapZoom] = useState(15);
   const { toast } = useToast();
+  const [isCommanderAtJunctionA, setIsCommanderAtJunctionA] = useState(false);
+
+  useEffect(() => {
+    // Simulate commander arrival for demo purposes
+    const timer = setTimeout(() => setIsCommanderAtJunctionA(true), 15000); // Commander arrives after 15 seconds
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     // Load camera positions from localStorage
@@ -176,7 +183,7 @@ function Dashboard() {
   const renderActiveView = () => {
     switch (activeTab) {
       case 'cameras':
-        return <CameraView cameras={cameras} />;
+        return <CameraView cameras={cameras} isCommanderAtJunctionA={isCommanderAtJunctionA} />;
       case 'lost-and-found':
         return <LostAndFound />;
       case 'map':
