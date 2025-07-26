@@ -15,7 +15,7 @@ import Image from 'next/image';
 import { Camera as CameraIcon, Expand } from 'lucide-react';
 import { Button } from '../ui/button';
 
-const MOCK_CAMERAS: Camera[] = Array.from({ length: 9 }, (_, i) => ({
+const MOCK_CAMERAS: Camera[] = Array.from({ length: 4 }, (_, i) => ({
   id: `cam-0${i + 1}`,
   name: `Camera Feed ${i + 1}`,
   location: `Zone ${String.fromCharCode(65 + (i % 3))}`,
