@@ -24,6 +24,47 @@ interface CameraViewProps {
 export default function CameraView({ cameras, isCommanderAtJunctionA }: CameraViewProps) {
   const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
 
+  const renderCameraFeed = (camera: Camera) => {
+    switch(camera.id) {
+        case 'cam-a':
+            return isCommanderAtJunctionA ? (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-lg font-semibold">Commander Arrived</p>
+                </div>
+              ) : (
+                <video
+                  src="https://storage.googleapis.com/event_safety/Crowd%20Detection.mp4"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+              );
+        case 'cam-b':
+            return (
+                <video
+                  src="https://storage.googleapis.com/event_safety/Anamoly.mp4"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+            );
+        default:
+            return (
+                <Image
+                    src={camera.streamUrl}
+                    alt={camera.name}
+                    fill
+                    className="object-cover"
+                    data-ai-hint="security camera"
+                />
+            );
+    }
+  }
+
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
@@ -40,30 +81,7 @@ export default function CameraView({ cameras, isCommanderAtJunctionA }: CameraVi
             </CardHeader>
             <CardContent className="p-0">
               <AspectRatio ratio={16 / 9} className="bg-muted">
-                {camera.id === 'cam-a' ? (
-                  isCommanderAtJunctionA ? (
-                    <div className="flex items-center justify-center h-full">
-                      <p className="text-lg font-semibold">Commander Arrived</p>
-                    </div>
-                  ) : (
-                    <video
-                      src="https://storage.googleapis.com/event_safety/Crowd%20Detection.mp4"
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
-                      className="w-full h-full object-cover"
-                    />
-                  )
-                ) : (
-                  <Image
-                    src={camera.streamUrl}
-                    alt={camera.name}
-                    fill
-                    className="object-cover"
-                    data-ai-hint="security camera"
-                  />
-                )}
+                {renderCameraFeed(camera)}
               </AspectRatio>
             </CardContent>
           </Card>
@@ -78,13 +96,23 @@ export default function CameraView({ cameras, isCommanderAtJunctionA }: CameraVi
           </DialogHeader>
           {selectedCamera && (
             <AspectRatio ratio={16 / 9} className="bg-muted rounded-md overflow-hidden">
-                 <Image
-                    src={selectedCamera.streamUrl.replace('640x480', '1280x720')}
-                    alt={selectedCamera.name}
-                    fill
-                    className="object-cover"
-                    data-ai-hint="security camera"
-                />
+                 {selectedCamera.id === 'cam-b' ? 
+                    <video
+                        src="https://storage.googleapis.com/event_safety/Anamoly.mp4"
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        className="w-full h-full object-cover"
+                    /> :
+                    <Image
+                        src={selectedCamera.streamUrl.replace('640x480', '1280x720')}
+                        alt={selectedCamera.name}
+                        fill
+                        className="object-cover"
+                        data-ai-hint="security camera"
+                    />
+                 }
             </AspectRatio>
           )}
         </DialogContent>
@@ -92,3 +120,4 @@ export default function CameraView({ cameras, isCommanderAtJunctionA }: CameraVi
     </>
   );
 }
+
