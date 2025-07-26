@@ -32,8 +32,17 @@ const generateRandomPoint = (center: Location, radius: number) => {
 
 const MOCK_ALERTS: Alert[] = [];
 
+// Pre-defined valid road coordinates for the Commander
+const COMMANDER_PATROL_ROUTE: Location[] = [
+    { lat: 12.9716, lng: 77.5946 },
+    { lat: 12.972, lng: 77.595 },
+    { lat: 12.9725, lng: 77.594 },
+    { lat: 12.972, lng: 77.593 },
+    { lat: 12.971, lng: 77.5935 },
+];
+
 const MOCK_STAFF: Staff[] = [
-  { id: 's1', name: 'Commander', role: 'Commander', location: generateRandomPoint(MOCK_CENTER, 500), avatar: `https://placehold.co/40x40.png`, status: 'Monitoring' },
+  { id: 's1', name: 'Commander', role: 'Commander', location: COMMANDER_PATROL_ROUTE[0], avatar: `https://placehold.co/40x40.png`, status: 'Monitoring' },
 ];
 
 const MOCK_CAMERAS: Camera[] = [
@@ -80,10 +89,13 @@ function Dashboard() {
   }, []);
 
   useEffect(() => {
+    let patrolIndex = 0;
     const staffInterval = setInterval(() => {
+        patrolIndex = (patrolIndex + 1) % COMMANDER_PATROL_ROUTE.length;
+        const newLocation = COMMANDER_PATROL_ROUTE[patrolIndex];
         setStaff(prevStaff => prevStaff.map(s => ({
             ...s,
-            location: generateRandomPoint(s.location, 50)
+            location: newLocation
         })));
     }, 5000); // Update staff location every 5 seconds
 
