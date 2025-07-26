@@ -75,12 +75,6 @@ function Dashboard() {
   const [isCommanderAtJunctionA, setIsCommanderAtJunctionA] = useState(false);
 
   useEffect(() => {
-    // Simulate commander arrival for demo purposes
-    const timer = setTimeout(() => setIsCommanderAtJunctionA(true), 15000); // Commander arrives after 15 seconds
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
     // Load camera positions from localStorage
     const savedCameras = localStorage.getItem(CAMERA_STORAGE_KEY);
     if (savedCameras) {
