@@ -17,7 +17,7 @@ import type { FindPersonOutput } from '@/ai/flows/lost-and-found-flow';
 
 const LostAndFoundSchema = z.object({
   name: z.string().optional(),
-  photo: z.any().refine((fileList) => fileList.length > 0, 'An image is required.'),
+  photo: z.any().refine((files) => files?.length > 0, 'An image is required.'),
 });
 type LostAndFoundForm = z.infer<typeof LostAndFoundSchema>;
 
@@ -36,7 +36,7 @@ export default function LostAndFound() {
     mode: 'onChange'
   });
 
-  const { register, handleSubmit, formState: { errors, isValid } } = form;
+  const { register, handleSubmit, formState: { errors } } = form;
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -74,7 +74,14 @@ export default function LostAndFound() {
     });
 
   const onSubmit: SubmitHandler<LostAndFoundForm> = async (data) => {
-    if (!data.photo || data.photo.length === 0) return;
+    if (!data.photo || data.photo.length === 0) {
+        toast({
+            variant: "destructive",
+            title: "Image Required",
+            description: "Please upload a photo to start the search.",
+        });
+        return;
+    }
     
     setIsSubmitting(true);
     setSearchResult(null);
@@ -89,7 +96,7 @@ export default function LostAndFound() {
       toast({
         title: result.found ? 'Match Found' : 'Search Initiated',
         description: result.message,
-        variant: result.found ? 'default' : 'destructive',
+        variant: result.found ? 'default' : (result.message.startsWith("Failed to connect") ? 'destructive' : 'default'),
       });
     } catch (error) {
       console.error('Face search failed:', error);
@@ -137,14 +144,14 @@ export default function LostAndFound() {
                 <Upload className="mr-2 h-4 w-4" />
                 {preview ? 'Change Photo' : 'Upload Photo'}
               </Button>
-              {errors.photo && <p className="text-sm font-medium text-destructive">An image is required.</p>}
+              {errors.photo && <p className="text-sm font-medium text-destructive">{errors.photo?.message as string}</p>}
             </div>
             {preview && (
               <div className="flex justify-center">
                 <Image src={preview} alt="Preview" width={200} height={200} className="rounded-md object-cover aspect-square" />
               </div>
             )}
-            <Button type="submit" disabled={isSubmitting || !isValid} className="w-full">
+            <Button type="submit" disabled={isSubmitting || !preview} className="w-full">
               {isSubmitting ? <Loader className="animate-spin mr-2" /> : <UserSearch className="mr-2" />}
               {isSubmitting ? 'Searching...' : 'Start Search'}
             </Button>
