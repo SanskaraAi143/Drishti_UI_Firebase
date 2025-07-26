@@ -21,10 +21,9 @@ interface MapViewProps {
   onIncidentClick: (incident: Incident) => void;
 }
 
-const StaffMarker = ({ staffMember, map }: { staffMember: Staff, map: google.maps.Map | null }) => {
-  if (!map) return null;
+const StaffMarker = ({ staffMember }: { staffMember: Staff }) => {
   return (
-    <AdvancedMarker map={map} position={staffMember.location} title={staffMember.name}>
+    <AdvancedMarker position={staffMember.location} title={staffMember.name}>
         <Avatar className="border-2 border-blue-400">
             <AvatarImage src={staffMember.avatar} alt={staffMember.name} data-ai-hint="person portrait" />
             <AvatarFallback>{staffMember.name.charAt(0)}</AvatarFallback>
@@ -33,11 +32,9 @@ const StaffMarker = ({ staffMember, map }: { staffMember: Staff, map: google.map
   );
 };
 
-const IncidentMarker = ({ incident, onClick, map }: { incident: Incident; onClick: (incident: Incident) => void, map: google.maps.Map | null }) => {
-  if (!map) return null;
+const IncidentMarker = ({ incident, onClick }: { incident: Incident; onClick: (incident: Incident) => void }) => {
   return (
     <AdvancedMarker
-      map={map}
       position={incident.location}
       title={`${incident.type} Incident (${incident.severity})`}
       onClick={() => onClick(incident)}
@@ -58,42 +55,7 @@ const IncidentMarker = ({ incident, onClick, map }: { incident: Incident; onClic
   );
 };
 
-
-const BengaluruMarker = ({map}: {map: google.maps.Map | null}) => {
-    const [infoWindowShown, setInfoWindowShown] = React.useState(false);
-    
-    if (!map) return null;
-
-    const position = { lat: 12.9716, lng: 77.5946 };
-
-    return (
-        <>
-            <AdvancedMarker
-                map={map}
-                position={position}
-                onClick={() => {
-                    setInfoWindowShown(isShown => !isShown)
-                    map.panTo(position);
-                }}
-            >
-                <Pin />
-            </AdvancedMarker>
-            {infoWindowShown && (
-                <InfoWindow
-                    map={map}
-                    position={position}
-                    onCloseClick={() => setInfoWindowShown(false)}
-                >
-                    <h2>Welcome to Bengaluru!</h2>
-                    <p>The Garden City of India.</p>
-                </InfoWindow>
-            )}
-        </>
-    )
-}
-
-
-const MapLayersComponent = ({ layers, staff, incidents }: Pick<MapViewProps, 'layers' | 'staff' | 'incidents'>) => {
+const MapLayersComponent = ({ layers, incidents }: Pick<MapViewProps, 'layers' | 'incidents'>) => {
     const map = useMap();
     const visualizationLibrary = useMapsLibrary('visualization');
     const [heatmap, setHeatmap] = React.useState<google.maps.visualization.HeatmapLayer | null>(null);
@@ -125,18 +87,12 @@ const MapLayersComponent = ({ layers, staff, incidents }: Pick<MapViewProps, 'la
     return null;
 }
 
-const MapContent = ({ center, zoom, staff, incidents, layers, onIncidentClick }: MapViewProps) => {
-  const map = useMap();
-
+const MapContent = ({ staff, incidents, layers, onIncidentClick }: Omit<MapViewProps, 'center' | 'zoom'>) => {
   return (
     <>
-      <BengaluruMarker map={map} />
-      
-      {layers.staff && staff.map(s => <StaffMarker key={`staff-${s.id}`} staffMember={s} map={map} />)}
-
-      {layers.incidents && incidents.map(i => <IncidentMarker key={`incident-${i.id}`} incident={i} onClick={onIncidentClick} map={map} />)}
-
-      <MapLayersComponent layers={layers} staff={staff} incidents={incidents} />
+      {layers.staff && staff.map(s => <StaffMarker key={`staff-${s.id}`} staffMember={s} />)}
+      {layers.incidents && incidents.map(i => <IncidentMarker key={`incident-${i.id}`} incident={i} onClick={onIncidentClick} />)}
+      <MapLayersComponent layers={layers} incidents={incidents} />
     </>
   )
 }
@@ -150,13 +106,13 @@ export default function MapView({ center, zoom, staff, incidents, layers, onInci
       <div className="w-full h-full bg-muted flex flex-col items-center justify-center p-4 text-center">
         <p className="text-destructive font-semibold text-lg">Google Maps API Key is Missing</p>
         <p className="text-sm text-muted-foreground mt-2 max-w-md">
-            To display the map, you need to provide a Google Maps API key. Please create a `.env.local` file in the root of your project and add the following line:
+            To display the map, you need to provide a `.env.local` file in the root of your project and add the following line:
         </p>
         <pre className="mt-4 bg-card p-2 rounded-md text-sm">
             NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=YOUR_API_KEY_HERE
         </pre>
         <p className="text-xs text-muted-foreground mt-4">
-          Ensure the Maps JavaScript API is enabled for your key in the Google Cloud Console.
+          Ensure the Maps JavaScript API and Visualization Library are enabled for your key in the Google Cloud Console.
         </p>
       </div>
     );
@@ -175,8 +131,6 @@ export default function MapView({ center, zoom, staff, incidents, layers, onInci
             mapId={'drishti_dark_map'}
           >
               <MapContent
-                center={center}
-                zoom={zoom}
                 staff={staff}
                 incidents={incidents}
                 layers={layers}
