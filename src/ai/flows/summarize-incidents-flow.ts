@@ -54,13 +54,7 @@ const summarizeIncidentsFlow = ai.defineFlow(
     outputSchema: SummarizeIncidentsOutputSchema,
   },
   async (input) => {
-    // To handle stringified dates from the client
-    const incidentsWithDateStrings = input.incidents.map(i => ({
-        ...i,
-        timestamp: new Date(i.timestamp).toISOString()
-    }))
-    
-    const { output } = await prompt({ incidents: incidentsWithDateStrings });
+    const { output } = await prompt(input);
     return output!;
   }
 );

@@ -22,6 +22,8 @@ const QuerySchema = z.object({
 });
 type QueryForm = z.infer<typeof QuerySchema>;
 
+type AiAction = 'query' | 'summarize';
+
 const DEFAULT_QUESTIONS = [
     "Summarize all high-severity alerts in the last hour.",
     "Is there unusual crowd activity near the main stage?",
@@ -57,7 +59,7 @@ export default function AiChatWidget({ incidents }: { incidents: any[] }) {
     }
   }, [messages]);
 
-  const processQuery = async (prompt: string) => {
+  const handleAiAction = async (prompt: string, action: AiAction) => {
     setIsSubmitting(true);
     const userMessage: Message = { id: Date.now(), role: 'user', text: prompt };
     const loadingMessage: Message = { id: Date.now() + 1, role: 'assistant', text: '', isLoading: true };
@@ -66,16 +68,21 @@ export default function AiChatWidget({ incidents }: { incidents: any[] }) {
     form.reset();
 
     try {
-      const result = await queryIncidentAnomalies({ query: prompt });
+      let result;
+      if (action === 'summarize') {
+        result = await summarizeIncidents(incidents);
+      } else {
+        result = await queryIncidentAnomalies({ query: prompt });
+      }
       const assistantMessage: Message = { id: Date.now() + 2, role: 'assistant', text: result.summary };
       setMessages(prev => [...prev.slice(0, -1), assistantMessage]);
     } catch (error) {
-      console.error("AI query failed:", error);
-      const errorMessage: Message = { id: Date.now() + 2, role: 'assistant', text: "Sorry, I couldn't process your request." };
+      console.error(`AI ${action} failed:`, error);
+      const errorMessage: Message = { id: Date.now() + 2, role: 'assistant', text: `Sorry, I couldn't process your ${action} request.` };
       setMessages(prev => [...prev.slice(0, -1), errorMessage]);
       toast({
         variant: "destructive",
-        title: "AI Query Error",
+        title: `AI ${action.charAt(0).toUpperCase() + action.slice(1)} Error`,
         description: "There was a problem communicating with the AI agent.",
       });
     } finally {
@@ -83,37 +90,14 @@ export default function AiChatWidget({ incidents }: { incidents: any[] }) {
     }
   };
 
-  const handleSummarizeIncidents = async () => {
-    setIsSubmitting(true);
-    const userMessage: Message = { id: Date.now(), role: 'user', text: 'Summarize all current incidents.' };
-    const loadingMessage: Message = { id: Date.now() + 1, role: 'assistant', text: '', isLoading: true };
-    setMessages(prev => [...prev, userMessage, loadingMessage]);
-
-    try {
-        const result = await summarizeIncidents(incidents);
-        const assistantMessage: Message = { id: Date.now() + 2, role: 'assistant', text: result.summary };
-        setMessages(prev => [...prev.slice(0, -1), assistantMessage]);
-    } catch (error) {
-        console.error("AI summary failed:", error);
-        const errorMessage: Message = { id: Date.now() + 2, role: 'assistant', text: "Sorry, I couldn't generate a summary." };
-        setMessages(prev => [...prev.slice(0, -1), errorMessage]);
-        toast({
-            variant: "destructive",
-            title: "AI Summary Error",
-            description: "There was a problem communicating with the AI agent.",
-        });
-    } finally {
-        setIsSubmitting(false);
-    }
-  }
 
   const onSubmit: SubmitHandler<QueryForm> = (data) => {
-    processQuery(data.prompt);
+    handleAiAction(data.prompt, 'query');
   };
   
   const handleDefaultQuestionClick = (question: string) => {
     form.setValue('prompt', question);
-    processQuery(question);
+    handleAiAction(question, 'query');
   };
 
 
@@ -184,7 +168,7 @@ export default function AiChatWidget({ incidents }: { incidents: any[] }) {
                     <Button 
                         variant="outline"
                         className="w-full justify-start"
-                        onClick={handleSummarizeIncidents}
+                        onClick={() => handleAiAction('Summarize all current incidents.', 'summarize')}
                         disabled={isSubmitting || incidents.length === 0}
                     >
                         <MessageSquareQuote className="mr-2 h-4 w-4"/>
