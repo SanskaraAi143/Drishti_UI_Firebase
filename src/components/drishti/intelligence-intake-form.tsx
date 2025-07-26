@@ -77,14 +77,16 @@ const GeofenceMap = ({ onGeofenceChange }: { onGeofenceChange: (path: any) => vo
         });
         setDrawingManager(manager);
 
-        drawingLibrary.event.addListener(manager, 'polygoncomplete', (polygon: google.maps.Polygon) => {
+        google.maps.event.addListener(manager, 'polygoncomplete', (polygon: google.maps.Polygon) => {
             const path = polygon.getPath().getArray().map(p => p.toJSON());
             onGeofenceChange(path);
             manager.setDrawingMode(null); // Exit drawing mode
         });
 
         return () => {
-            manager.setMap(null);
+            if (manager) {
+              manager.setMap(null);
+            }
         };
     }, [map, drawingLibrary, onGeofenceChange]);
 
@@ -279,7 +281,7 @@ export function IntelligenceIntakeForm() {
                                     checked={field.value?.includes(item.id)}
                                     onCheckedChange={(checked) => {
                                     return checked
-                                        ? field.onChange([...field.value, item.id])
+                                        ? field.onChange([...(field.value || []), item.id])
                                         : field.onChange(field.value?.filter(value => value !== item.id))
                                     }}
                                 />
