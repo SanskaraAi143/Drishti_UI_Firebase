@@ -28,6 +28,7 @@ export type MapLayers = {
   heatmap: boolean;
   staff: boolean;
   incidents: boolean;
+  cameras: boolean;
   bottlenecks: boolean;
 };
 
@@ -42,7 +43,7 @@ export type Message = {
 export type Camera = {
   id: string;
   name: string;
-  location: string;
+  location: Location;
   streamUrl: string;
 };
 

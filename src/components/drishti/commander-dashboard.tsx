@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import type { Alert, Staff, Incident, MapLayers, Location, Route } from '@/lib/types';
+import type { Alert, Staff, Incident, MapLayers, Location, Route, Camera } from '@/lib/types';
 import Sidebar from '@/components/drishti/sidebar';
 import MapView from '@/components/drishti/map-view';
 import IncidentModal from '@/components/drishti/incident-modal';
@@ -36,10 +36,15 @@ const MOCK_STAFF: Staff[] = [
   { id: 's1', name: 'Commander', role: 'Commander', location: generateRandomPoint(MOCK_CENTER, 500), avatar: `https://placehold.co/40x40.png`, status: 'Monitoring' },
 ];
 
+const MOCK_CAMERAS: Camera[] = [
+    { id: 'cam-a', name: 'Camera A (Junction)', location: { lat: 12.9685, lng: 77.5913 }, streamUrl: 'live' },
+];
+
 function Dashboard() {
   const [activeTab, setActiveTab] = useState('map');
   const [alerts, setAlerts] = useState<Alert[]>(MOCK_ALERTS);
   const [staff, setStaff] = useState<Staff[]>(MOCK_STAFF);
+  const [cameras, setCameras] = useState<Camera[]>(MOCK_CAMERAS);
   const [incidents, setIncidents] = useState<Incident[]>([...MOCK_ALERTS]);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
@@ -48,6 +53,7 @@ function Dashboard() {
     heatmap: true,
     staff: true,
     incidents: true,
+    cameras: true,
     bottlenecks: true,
   });
   const [mapCenter, setMapCenter] = useState<Location>(MOCK_CENTER);
@@ -113,6 +119,12 @@ function Dashboard() {
       setRouteInfo(route);
     }
   }, []);
+  
+  const handleCameraClick = useCallback((camera: Camera) => {
+    setMapCenter(camera.location);
+    setMapZoom(18);
+    setActiveTab('cameras');
+  }, []);
 
   const renderActiveView = () => {
     switch (activeTab) {
@@ -129,8 +141,10 @@ function Dashboard() {
             zoom={mapZoom}
             staff={staff}
             incidents={incidents}
+            cameras={cameras}
             layers={mapLayers}
             onIncidentClick={handleAlertClick}
+            onCameraClick={handleCameraClick}
             onMapInteraction={handleMapInteraction}
             directionsRequest={selectedIncident?.severity === 'High' && commander ? {
               origin: commander.location,

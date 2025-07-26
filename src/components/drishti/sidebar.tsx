@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Alert, Staff, MapLayers } from '@/lib/types';
@@ -89,6 +90,10 @@ export default function Sidebar({
             <div className="flex items-center justify-between">
               <Label htmlFor="incidents-toggle" className="flex items-center"><ShieldAlert className="mr-2 h-4 w-4 text-accent"/>Incident Flags</Label>
               <Switch id="incidents-toggle" checked={mapLayers.incidents} onCheckedChange={() => onToggleLayer('incidents')} />
+            </div>
+             <div className="flex items-center justify-between">
+              <Label htmlFor="cameras-toggle" className="flex items-center"><Video className="mr-2 h-4 w-4 text-accent"/>Cameras</Label>
+              <Switch id="cameras-toggle" checked={mapLayers.cameras} onCheckedChange={() => onToggleLayer('cameras')} />
             </div>
             <div className="flex items-center justify-between">
               <Label htmlFor="bottlenecks-toggle" className="flex items-center"><Layers className="mr-2 h-4 w-4 text-accent"/>Predictive Bottlenecks</Label>

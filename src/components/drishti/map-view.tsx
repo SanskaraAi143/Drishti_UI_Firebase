@@ -1,12 +1,13 @@
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
 import { APIProvider, Map, AdvancedMarker, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
-import type { Location, Staff, Incident, MapLayers, Route } from '@/lib/types';
+import type { Location, Staff, Incident, MapLayers, Route, Camera } from '@/lib/types';
 import { IncidentIcon } from '../icons/incident-icons';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Video } from 'lucide-react';
 
 const severityColors = {
   High: '#ef4444',
@@ -19,8 +20,10 @@ interface MapViewProps {
   zoom: number;
   staff: Staff[];
   incidents: Incident[];
+  cameras: Camera[];
   layers: MapLayers;
   onIncidentClick: (incident: Incident) => void;
+  onCameraClick: (camera: Camera) => void;
   onMapInteraction: (center: Location, zoom: number) => void;
   directionsRequest: google.maps.DirectionsRequest | null;
   onDirectionsChange: (result: google.maps.DirectionsResult | null, route: Route | null) => void;
@@ -69,6 +72,20 @@ const IncidentMarker = ({ incident, onClick }: { incident: Incident; onClick: (i
   );
 };
 
+const CameraMarker = ({ camera, onClick }: { camera: Camera, onClick: (camera: Camera) => void }) => {
+    return (
+      <AdvancedMarker
+        position={camera.location}
+        title={camera.name}
+        onClick={() => onClick(camera)}
+      >
+        <div className="p-1.5 rounded-full bg-background border-2 border-gray-500">
+            <Video className="h-5 w-5 text-gray-500" />
+        </div>
+      </AdvancedMarker>
+    );
+  };
+
 const MapLayersComponent = ({ layers, incidents }: Pick<MapViewProps, 'layers' | 'incidents'>) => {
     const map = useMap();
     const visualizationLibrary = useMapsLibrary('visualization');
@@ -104,22 +121,33 @@ const DirectionsRenderer = ({ request, onDirectionsChange }: { request: google.m
     const map = useMap();
     const routesLibrary = useMapsLibrary('routes');
     const [directionsService, setDirectionsService] = useState<google.maps.DirectionsService>();
-    const [directionsResult, setDirectionsResult] = useState<google.maps.DirectionsResult | null>(null);
+    const [directionsRenderer, setDirectionsRenderer] = useState<google.maps.DirectionsRenderer>();
 
     useEffect(() => {
         if (!routesLibrary || !map) return;
         setDirectionsService(new routesLibrary.DirectionsService());
+        setDirectionsRenderer(new routesLibrary.DirectionsRenderer({ 
+            map, 
+            suppressMarkers: true,
+            polylineOptions: {
+                strokeColor: '#4285F4',
+                strokeOpacity: 0.8,
+                strokeWeight: 6
+            }
+        }));
     }, [routesLibrary, map]);
 
     useEffect(() => {
-        if (!directionsService || !map || !request) {
-            setDirectionsResult(null);
+        if (!directionsService || !directionsRenderer) return;
+
+        if (!request) {
+            directionsRenderer.setDirections(null);
             onDirectionsChange(null, null);
             return;
         }
 
         directionsService.route(request).then(response => {
-            setDirectionsResult(response);
+            directionsRenderer.setDirections(response);
             const leg = response.routes[0]?.legs[0];
             if (leg && leg.distance && leg.duration && leg.steps) {
                 const route: Route = {
@@ -130,26 +158,18 @@ const DirectionsRenderer = ({ request, onDirectionsChange }: { request: google.m
                         distance: step.distance!.text,
                         duration: step.duration!.text
                     })),
-                    googleMapsUrl: `https://www.google.com/maps/dir/?api=1&origin=${request.origin.lat},${request.origin.lng}&destination=${request.destination.lat},${request.destination.lng}&travelmode=driving`
+                    googleMapsUrl: `https://www.google.com/maps/dir/?api=1&origin=${(request.origin as google.maps.LatLng).lat()},${(request.origin as google.maps.LatLng).lng()}&destination=${(request.destination as google.maps.LatLng).lat()},${(request.destination as google.maps.LatLng).lng()}&travelmode=driving`
                 };
                 onDirectionsChange(response, route);
             }
+        }).catch(e => {
+            console.error("Directions request failed", e);
+            directionsRenderer.setDirections(null);
+            onDirectionsChange(null, null);
         });
-    }, [directionsService, map, request, onDirectionsChange]);
+    }, [directionsService, directionsRenderer, request, onDirectionsChange]);
 
-    if (!directionsResult) return null;
-
-    const Polyline = routesLibrary?.Polyline as any;
-    if (!Polyline) return null;
-
-    return (
-        <Polyline
-            path={directionsResult.routes[0]?.overview_path}
-            strokeColor="#4285F4"
-            strokeOpacity={0.8}
-            strokeWeight={6}
-        />
-    );
+    return null;
 };
 
 
@@ -181,7 +201,7 @@ const MapEvents = ({ onMapInteraction }: Pick<MapViewProps, 'onMapInteraction'>)
 }
 
 
-const MapContent = ({ staff, incidents, layers, onIncidentClick, onMapInteraction, directionsRequest, onDirectionsChange }: Omit<MapViewProps, 'center' | 'zoom'>) => {
+const MapContent = ({ staff, incidents, cameras, layers, onIncidentClick, onCameraClick, onMapInteraction, directionsRequest, onDirectionsChange }: Omit<MapViewProps, 'center' | 'zoom'>) => {
   const map = useMap();
 
   if (!map) {
@@ -196,6 +216,7 @@ const MapContent = ({ staff, incidents, layers, onIncidentClick, onMapInteractio
     <>
       {layers.staff && staff.map(s => <StaffMarker key={`staff-${s.id}`} staffMember={s} />)}
       {layers.incidents && incidents.map(i => <IncidentMarker key={`incident-${i.id}`} incident={i} onClick={onIncidentClick} />)}
+      {layers.cameras && cameras.map(c => <CameraMarker key={`camera-${c.id}`} camera={c} onClick={onCameraClick} />)}
       <MapLayersComponent layers={layers} incidents={incidents} />
       <MapEvents onMapInteraction={onMapInteraction} />
       <DirectionsRenderer request={directionsRequest} onDirectionsChange={onDirectionsChange} />
@@ -204,7 +225,7 @@ const MapContent = ({ staff, incidents, layers, onIncidentClick, onMapInteractio
 }
 
 
-export default function MapView({ center, zoom, staff, incidents, layers, onIncidentClick, onMapInteraction, directionsRequest, onDirectionsChange }: MapViewProps) {
+export default function MapView({ center, zoom, staff, incidents, cameras, layers, onIncidentClick, onCameraClick, onMapInteraction, directionsRequest, onDirectionsChange }: MapViewProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   if (!apiKey) {
@@ -214,7 +235,7 @@ export default function MapView({ center, zoom, staff, incidents, layers, onInci
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>Google Maps API Key is Missing</AlertTitle>
             <AlertDescription>
-                <p>To display the map, you need to add your Google Maps API key to the `.env.local` file:</p>
+                <p>To display the map, you need to add your Google Maps API key to the `.env` file:</p>
                 <pre className="mt-2 bg-card p-2 rounded-md text-xs text-left">
                     NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=YOUR_API_KEY
                 </pre>
@@ -245,8 +266,10 @@ export default function MapView({ center, zoom, staff, incidents, layers, onInci
               <MapContent
                 staff={staff}
                 incidents={incidents}
+                cameras={cameras}
                 layers={layers}
                 onIncidentClick={onIncidentClick}
+                onCameraClick={onCameraClick}
                 onMapInteraction={onMapInteraction}
                 directionsRequest={directionsRequest}
                 onDirectionsChange={onDirectionsChange}
