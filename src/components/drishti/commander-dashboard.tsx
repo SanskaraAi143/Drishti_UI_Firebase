@@ -42,6 +42,8 @@ const MOCK_CAMERAS: Camera[] = [
     { id: 'cam-c', name: 'Camera C (Zone C)', location: generateRandomPoint(MOCK_CENTER, 400), streamUrl: 'https://placehold.co/640x480.png?text=Live+Feed+3' },
 ];
 
+const CAMERA_STORAGE_KEY = 'drishti-camera-positions';
+
 function Dashboard() {
   const [activeTab, setActiveTab] = useState('map');
   const [alerts, setAlerts] = useState<Alert[]>(MOCK_ALERTS);
@@ -61,6 +63,21 @@ function Dashboard() {
   const [mapCenter, setMapCenter] = useState<Location>(MOCK_CENTER);
   const [mapZoom, setMapZoom] = useState(15);
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Load camera positions from localStorage
+    const savedCameras = localStorage.getItem(CAMERA_STORAGE_KEY);
+    if (savedCameras) {
+      try {
+        setCameras(JSON.parse(savedCameras));
+      } catch (error) {
+        console.error("Failed to parse camera positions from localStorage", error);
+        // If parsing fails, use mock data and clear storage
+        setCameras(MOCK_CAMERAS);
+        localStorage.removeItem(CAMERA_STORAGE_KEY);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const staffInterval = setInterval(() => {
@@ -132,16 +149,16 @@ function Dashboard() {
   }, []);
 
   const handleCameraMove = useCallback((cameraId: string, newLocation: Location) => {
-    setCameras(prevCameras => 
-        prevCameras.map(c => 
-            c.id === cameraId ? { ...c, location: newLocation } : c
-        )
+    const updatedCameras = cameras.map(c => 
+        c.id === cameraId ? { ...c, location: newLocation } : c
     );
+    setCameras(updatedCameras);
+    localStorage.setItem(CAMERA_STORAGE_KEY, JSON.stringify(updatedCameras));
     toast({
         title: "Camera Repositioned",
-        description: `Camera ${cameraId} has been moved.`,
+        description: `Camera ${cameraId} position has been updated and saved.`,
     })
-  }, [toast]);
+  }, [cameras, toast]);
 
 
   const renderActiveView = () => {
