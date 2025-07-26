@@ -326,9 +326,11 @@ const CommanderPatrol = ({ staff, setStaff, patrolRoute, isIncidentRouteActive }
         handleAnimationComplete
     );
 
-    if (!commander || isIncidentRouteActive) return null;
+    if (!commander || isIncidentRouteActive || !patrolDirections) return null;
     
-    return <DirectionsRenderer directions={patrolDirections} routeId="patrol" color="#1E88E5" />;
+    // Do not render the DirectionsRenderer for patrol routes to keep the map clean.
+    // The marker animation will still follow the path.
+    return null;
 }
 
 
@@ -466,3 +468,5 @@ export default function MapView({ center, zoom, staff, setStaff, incidents, came
     </APIProvider>
   );
 }
+
+    
