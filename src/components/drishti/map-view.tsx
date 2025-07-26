@@ -139,6 +139,11 @@ const DirectionsRenderer = ({
     const map = useMap();
     const routesLibrary = useMapsLibrary('routes');
     const [directionsRenderer, setDirectionsRenderer] = useState<google.maps.DirectionsRenderer | null>(null);
+    const onDirectionsChangeRef = useRef(onDirectionsChange);
+
+    useEffect(() => {
+        onDirectionsChangeRef.current = onDirectionsChange;
+    }, [onDirectionsChange]);
 
     useEffect(() => {
         if (!routesLibrary || !map) return;
@@ -172,7 +177,7 @@ const DirectionsRenderer = ({
     }, [directionsRenderer, directions, render, map]);
 
     useEffect(() => {
-        if (onDirectionsChange) {
+        if (onDirectionsChangeRef.current) {
             if (directions) {
                 const leg = directions.routes[0]?.legs[0];
                 if (leg && leg.distance && leg.duration && leg.steps) {
@@ -186,13 +191,13 @@ const DirectionsRenderer = ({
                         })),
                         googleMapsUrl: `https://www.google.com/maps/dir/?api=1&origin=${leg.start_location.lat()},${leg.start_location.lng()}&destination=${leg.end_location.lat()},${leg.end_location.lng()}&travelmode=driving`
                     };
-                    onDirectionsChange(directions, route);
+                    onDirectionsChangeRef.current(directions, route);
                 }
             } else {
-                onDirectionsChange(null, null);
+                onDirectionsChangeRef.current(null, null);
             }
         }
-    }, [directions, onDirectionsChange]);
+    }, [directions]);
 
     return null;
 };
