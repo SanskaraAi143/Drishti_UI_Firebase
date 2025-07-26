@@ -5,15 +5,17 @@ import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { queryIncidentAnomalies } from '@/ai/flows/query-incident-anomalies';
+import { summarizeIncidents } from '@/ai/flows/summarize-incidents-flow';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Bot, User, Send, Loader, Sparkles } from 'lucide-react';
+import { Bot, User, Send, Loader, Sparkles, MessageSquareQuote } from 'lucide-react';
 import type { Message } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useSidebar } from '../ui/sidebar';
 
 const QuerySchema = z.object({
   prompt: z.string().min(1, 'Please enter a question.'),
@@ -27,17 +29,18 @@ const DEFAULT_QUESTIONS = [
     "What are the current weather conditions?"
 ]
 
-export default function AiChatWidget() {
+export default function AiChatWidget({ incidents }: { incidents: any[] }) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
       role: 'assistant',
-      text: 'How can I assist you? Ask me about security concerns or incident anomalies in any zone.',
+      text: 'How can I assist you? Ask me about security concerns or summarize all current incidents.',
     },
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const { open: sidebarOpen } = useSidebar();
 
   const form = useForm<QueryForm>({
     resolver: zodResolver(QuerySchema),
@@ -80,6 +83,30 @@ export default function AiChatWidget() {
     }
   };
 
+  const handleSummarizeIncidents = async () => {
+    setIsSubmitting(true);
+    const userMessage: Message = { id: Date.now(), role: 'user', text: 'Summarize all current incidents.' };
+    const loadingMessage: Message = { id: Date.now() + 1, role: 'assistant', text: '', isLoading: true };
+    setMessages(prev => [...prev, userMessage, loadingMessage]);
+
+    try {
+        const result = await summarizeIncidents(incidents);
+        const assistantMessage: Message = { id: Date.now() + 2, role: 'assistant', text: result.summary };
+        setMessages(prev => [...prev.slice(0, -1), assistantMessage]);
+    } catch (error) {
+        console.error("AI summary failed:", error);
+        const errorMessage: Message = { id: Date.now() + 2, role: 'assistant', text: "Sorry, I couldn't generate a summary." };
+        setMessages(prev => [...prev.slice(0, -1), errorMessage]);
+        toast({
+            variant: "destructive",
+            title: "AI Summary Error",
+            description: "There was a problem communicating with the AI agent.",
+        });
+    } finally {
+        setIsSubmitting(false);
+    }
+  }
+
   const onSubmit: SubmitHandler<QueryForm> = (data) => {
     processQuery(data.prompt);
   };
@@ -91,7 +118,7 @@ export default function AiChatWidget() {
 
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <div className={cn("fixed bottom-6 right-6 z-50 transition-transform duration-300", sidebarOpen ? "translate-x-[-380px]" : "translate-x-0")}>
       <Popover>
         <PopoverTrigger asChild>
           <Button size="icon" className="rounded-full w-14 h-14 shadow-lg">
@@ -153,6 +180,17 @@ export default function AiChatWidget() {
                         ))}
                     </div>
                 )}
+                 <div className="mb-4">
+                    <Button 
+                        variant="outline"
+                        className="w-full justify-start"
+                        onClick={handleSummarizeIncidents}
+                        disabled={isSubmitting || incidents.length === 0}
+                    >
+                        <MessageSquareQuote className="mr-2 h-4 w-4"/>
+                        Summarize all current incidents
+                    </Button>
+                </div>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="flex items-center gap-2">
                     <Input
                         {...form.register('prompt')}

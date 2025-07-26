@@ -36,6 +36,7 @@ export type Message = {
   role: 'user' | 'assistant';
   text: string;
   isLoading?: boolean;
+  incidents?: Incident[];
 };
 
 export type Camera = {

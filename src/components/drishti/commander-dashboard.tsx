@@ -9,7 +9,7 @@ import IncidentModal from '@/components/drishti/incident-modal';
 import CameraView from '@/components/drishti/camera-view';
 import LostAndFound from '@/components/drishti/lost-and-found';
 import { useToast } from '@/hooks/use-toast';
-import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
+import { SidebarProvider, SidebarInset, useSidebar } from '@/components/ui/sidebar';
 import AiChatWidget from './ai-chat-widget';
 
 const MOCK_CENTER: Location = { lat: 12.9716, lng: 77.5946 }; // Bengaluru
@@ -44,7 +44,7 @@ const MOCK_STAFF: Staff[] = [
   { id: 's4', name: 'Emily White', role: 'Security', location: generateRandomPoint(MOCK_CENTER, 500), avatar: 'https://placehold.co/40x40.png', status: 'Responding' },
 ];
 
-export default function CommanderDashboard() {
+function Dashboard() {
   const [activeTab, setActiveTab] = useState('map');
   const [alerts, setAlerts] = useState<Alert[]>(MOCK_ALERTS);
   const [staff, setStaff] = useState<Staff[]>(MOCK_STAFF);
@@ -132,7 +132,6 @@ export default function CommanderDashboard() {
   };
 
   return (
-    <SidebarProvider>
       <div className="flex h-screen w-screen overflow-hidden">
         <Sidebar
           alerts={alerts}
@@ -146,7 +145,7 @@ export default function CommanderDashboard() {
         />
         <SidebarInset>
             {renderActiveView()}
-             <AiChatWidget />
+             <AiChatWidget incidents={incidents} />
         </SidebarInset>
         <IncidentModal
           incident={selectedIncident}
@@ -154,6 +153,14 @@ export default function CommanderDashboard() {
           onOpenChange={(isOpen) => !isOpen && setSelectedIncident(null)}
         />
       </div>
-    </SidebarProvider>
   );
+}
+
+
+export default function CommanderDashboard() {
+  return (
+    <SidebarProvider>
+      <Dashboard />
+    </SidebarProvider>
+  )
 }

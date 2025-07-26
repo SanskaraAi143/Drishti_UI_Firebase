@@ -4,3 +4,4 @@ config();
 
 import '@/ai/flows/query-incident-anomalies.ts';
 import '@/ai/flows/lost-and-found-flow.ts';
+import '@/ai/flows/summarize-incidents-flow.ts';
