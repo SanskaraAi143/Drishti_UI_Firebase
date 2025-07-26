@@ -17,7 +17,7 @@ import type { FindPersonOutput } from '@/ai/flows/lost-and-found-flow';
 
 const LostAndFoundSchema = z.object({
   name: z.string().optional(),
-  photo: z.any().refine((files) => files?.length > 0, 'An image is required.'),
+  photo: z.any().refine((file) => file instanceof FileList && file.length > 0, 'An image is required.'),
 });
 type LostAndFoundForm = z.infer<typeof LostAndFoundSchema>;
 
@@ -36,11 +36,12 @@ export default function LostAndFound() {
     mode: 'onChange'
   });
 
-  const { register, handleSubmit, formState: { errors } } = form;
+  const { register, handleSubmit, formState: { errors }, setValue } = form;
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const file = files[0];
       if (file.size > MAX_FILE_SIZE) {
         toast({
           variant: 'destructive',
@@ -57,6 +58,9 @@ export default function LostAndFound() {
         });
         return;
       }
+      
+      setValue('photo', files, { shouldValidate: true });
+      
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreview(reader.result as string);
@@ -74,7 +78,9 @@ export default function LostAndFound() {
     });
 
   const onSubmit: SubmitHandler<LostAndFoundForm> = async (data) => {
-    if (!data.photo || data.photo.length === 0) {
+    const file = data.photo?.[0];
+
+    if (!file) {
         toast({
             variant: "destructive",
             title: "Image Required",
@@ -87,7 +93,7 @@ export default function LostAndFound() {
     setSearchResult(null);
 
     try {
-      const photoDataUri = await toBase64(data.photo[0]);
+      const photoDataUri = await toBase64(file);
       const result = await findPerson({
         name: data.name,
         photoDataUri,
@@ -110,7 +116,7 @@ export default function LostAndFound() {
     }
   };
 
-  const photoRef = register('photo');
+  const { ref: photoRef, ...photoRest } = register('photo');
 
   return (
     <div className="p-4 space-y-4">
@@ -126,17 +132,17 @@ export default function LostAndFound() {
               <Input id="name" {...register('name')} placeholder="e.g., Jane Doe" disabled={isSubmitting} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="photo">Photo</Label>
+              <Label htmlFor="photo-upload">Photo</Label>
               <Input
-                id="photo"
+                id="photo-upload"
                 type="file"
                 accept={ACCEPTED_IMAGE_TYPES.join(',')}
-                {...photoRef}
-                onChange={(e) => {
-                  photoRef.onChange(e);
-                  handlePhotoChange(e);
+                {...photoRest}
+                onChange={handlePhotoChange}
+                ref={(e) => {
+                  photoRef(e);
+                  fileInputRef.current = e;
                 }}
-                ref={fileInputRef}
                 className="hidden"
                 disabled={isSubmitting}
               />
@@ -151,7 +157,7 @@ export default function LostAndFound() {
                 <Image src={preview} alt="Preview" width={200} height={200} className="rounded-md object-cover aspect-square" />
               </div>
             )}
-            <Button type="submit" disabled={isSubmitting || !preview} className="w-full">
+            <Button type="submit" disabled={isSubmitting || !!errors.photo || !preview} className="w-full">
               {isSubmitting ? <Loader className="animate-spin mr-2" /> : <UserSearch className="mr-2" />}
               {isSubmitting ? 'Searching...' : 'Start Search'}
             </Button>
@@ -208,3 +214,5 @@ export default function LostAndFound() {
     </div>
   );
 }
+
+    
