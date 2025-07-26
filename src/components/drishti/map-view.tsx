@@ -107,8 +107,11 @@ export default function MapView({ center, zoom, staff, incidents, layers, onInci
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   if (!apiKey) {
-    console.error("Google Maps API key is missing.");
-    return <div className="w-full h-full bg-muted flex items-center justify-center"><p>Google Maps API key is missing.</p></div>;
+    return (
+      <div className="w-full h-full bg-muted flex items-center justify-center p-4 text-center">
+        <p>Google Maps API key is missing. Please set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in your environment variables.</p>
+      </div>
+    );
   }
 
   return (
