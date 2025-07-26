@@ -34,11 +34,12 @@ const MOCK_ALERTS: Alert[] = [];
 
 // Pre-defined valid road coordinates for the Commander
 const COMMANDER_PATROL_ROUTE: Location[] = [
-    { lat: 12.9716, lng: 77.5946 },
-    { lat: 12.972, lng: 77.595 },
-    { lat: 12.9725, lng: 77.594 },
-    { lat: 12.972, lng: 77.593 },
-    { lat: 12.971, lng: 77.5935 },
+    { lat: 12.9740, lng: 77.5920 },
+    { lat: 12.9740, lng: 77.5980 },
+    { lat: 12.9720, lng: 77.5980 },
+    { lat: 12.9700, lng: 77.5960 },
+    { lat: 12.9690, lng: 77.5920 },
+    { lat: 12.9716, lng: 77.5946 }, // return to center
 ];
 
 const MOCK_STAFF: Staff[] = [
@@ -79,7 +80,14 @@ function Dashboard() {
     const savedCameras = localStorage.getItem(CAMERA_STORAGE_KEY);
     if (savedCameras) {
       try {
-        setCameras(JSON.parse(savedCameras));
+        const parsedCameras = JSON.parse(savedCameras);
+        // Basic validation
+        if (Array.isArray(parsedCameras) && parsedCameras.every(c => c.id && c.location)) {
+            setCameras(parsedCameras);
+        } else {
+            console.error("Invalid camera data in localStorage");
+            setCameras(MOCK_CAMERAS);
+        }
       } catch (error) {
         console.error("Failed to parse camera positions from localStorage", error);
         // If parsing fails, use mock data and clear storage
