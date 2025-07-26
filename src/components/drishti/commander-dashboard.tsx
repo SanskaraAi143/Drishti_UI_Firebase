@@ -235,7 +235,7 @@ function Dashboard() {
           onAlertClick={handleAlertClick}
           onStaffClick={handleStaffClick}
           mapLayers={mapLayers}
-          onToggleLayer={onToggleLayer}
+          onToggleLayer={handleToggleLayer}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
         />
