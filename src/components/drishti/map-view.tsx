@@ -24,11 +24,20 @@ interface MapViewProps {
   onMapInteraction: (center: Location, zoom: number) => void;
 }
 
+const getRoleHint = (role: Staff['role']) => {
+    switch(role) {
+        case 'Security': return 'security guard';
+        case 'Medical': return 'paramedic';
+        case 'Operations': return 'event manager';
+        default: return 'person portrait';
+    }
+}
+
 const StaffMarker = ({ staffMember }: { staffMember: Staff }) => {
   return (
     <AdvancedMarker position={staffMember.location} title={staffMember.name}>
         <Avatar className="border-2 border-blue-400">
-            <AvatarImage src={staffMember.avatar} alt={staffMember.name} data-ai-hint="person portrait" />
+            <AvatarImage src={staffMember.avatar} alt={staffMember.name} data-ai-hint={getRoleHint(staffMember.role)} />
             <AvatarFallback>{staffMember.name.charAt(0)}</AvatarFallback>
         </Avatar>
     </AdvancedMarker>

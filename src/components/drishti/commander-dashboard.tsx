@@ -38,10 +38,10 @@ const MOCK_ALERTS: Alert[] = [
 ];
 
 const MOCK_STAFF: Staff[] = [
-  { id: 's1', name: 'John Doe', role: 'Security', location: generateRandomPoint(MOCK_CENTER, 500), avatar: 'https://placehold.co/40x40.png', status: 'Patrolling' },
-  { id: 's2', name: 'Jane Smith', role: 'Medical', location: generateRandomPoint(MOCK_CENTER, 500), avatar: 'https://placehold.co/40x40.png', status: 'On-Break' },
-  { id: 's3', name: 'Mike Johnson', role: 'Operations', location: generateRandomPoint(MOCK_CENTER, 500), avatar: 'https://placehold.co/40x40.png', status: 'Patrolling' },
-  { id: 's4', name: 'Emily White', role: 'Security', location: generateRandomPoint(MOCK_CENTER, 500), avatar: 'https://placehold.co/40x40.png', status: 'Responding' },
+  { id: 's1', name: 'John Doe', role: 'Security', location: generateRandomPoint(MOCK_CENTER, 500), avatar: `https://placehold.co/40x40.png`, status: 'Patrolling' },
+  { id: 's2', name: 'Jane Smith', role: 'Medical', location: generateRandomPoint(MOCK_CENTER, 500), avatar: `https://placehold.co/40x40.png`, status: 'On-Break' },
+  { id: 's3', name: 'Mike Johnson', role: 'Operations', location: generateRandomPoint(MOCK_CENTER, 500), avatar: `https://placehold.co/40x40.png`, status: 'Patrolling' },
+  { id: 's4', name: 'Emily White', role: 'Security', location: generateRandomPoint(MOCK_CENTER, 500), avatar: `https://placehold.co/40x40.png`, status: 'Responding' },
 ];
 
 function Dashboard() {

@@ -19,6 +19,15 @@ const statusIcons = {
     'On-Break': <Clock className="h-4 w-4 text-yellow-400" />,
 }
 
+const getRoleHint = (role: Staff['role']) => {
+    switch(role) {
+        case 'Security': return 'security guard';
+        case 'Medical': return 'paramedic';
+        case 'Operations': return 'event manager';
+        default: return 'person portrait';
+    }
+}
+
 export default function StaffView({ staff, onStaffClick }: StaffViewProps) {
   return (
     <ScrollArea className="h-[calc(100%-1rem)]">
@@ -27,7 +36,7 @@ export default function StaffView({ staff, onStaffClick }: StaffViewProps) {
           <Card key={s.id} className="transition-colors hover:bg-muted/50">
             <CardContent className="p-3 flex items-center space-x-3">
               <Avatar>
-                <AvatarImage src={s.avatar} alt={s.name} data-ai-hint="person portrait" />
+                <AvatarImage src={s.avatar} alt={s.name} data-ai-hint={getRoleHint(s.role)} />
                 <AvatarFallback>{s.name.charAt(0)}</AvatarFallback>
               </Avatar>
               <div className="flex-grow">
