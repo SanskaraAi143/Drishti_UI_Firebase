@@ -16,7 +16,7 @@ export type Alert = {
 export type Staff = {
   id: string;
   name: string;
-  role: 'Commander';
+  role: 'Commander' | 'Security' | 'Medical' | 'Operations';
   location: Location;
   avatar: string;
   status: 'Patrolling' | 'Responding' | 'On-Break' | 'Monitoring';

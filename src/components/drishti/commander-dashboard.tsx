@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Alert, Staff, Incident, MapLayers, Location, Route, Camera } from '@/lib/types';
 import Sidebar from '@/components/drishti/sidebar';
 import MapView from '@/components/drishti/map-view';
@@ -11,6 +11,7 @@ import LostAndFound from '@/components/drishti/lost-and-found';
 import { useToast } from '@/hooks/use-toast';
 import { SidebarProvider, SidebarInset, useSidebar } from '@/components/ui/sidebar';
 import AiChatWidget from './ai-chat-widget';
+import { useMapsLibrary } from '@vis.gl/react-google-maps';
 
 const MOCK_CENTER: Location = { lat: 12.9716, lng: 77.5946 }; // Bengaluru
 
@@ -25,6 +26,9 @@ const COMMANDER_PATROL_ROUTE: Location[] = [
 
 const MOCK_STAFF: Staff[] = [
   { id: 's1', name: 'Commander', role: 'Commander', location: COMMANDER_PATROL_ROUTE[0], avatar: `https://placehold.co/40x40.png`, status: 'Monitoring', route: null },
+  { id: 's2', name: 'Medic Team Alpha', role: 'Medical', location: { lat: 12.9765, lng: 77.5965 }, avatar: 'https://placehold.co/40x40.png', status: 'Patrolling', route: null },
+  { id: 's3', name: 'Sec-1 (Main Stage)', role: 'Security', location: { lat: 12.9725, lng: 77.5985 }, avatar: 'https://placehold.co/40x40.png', status: 'Patrolling', route: null },
+  { id: 's4', name: 'Ops Manager', role: 'Operations', location: { lat: 12.9695, lng: 77.5925 }, avatar: 'https://placehold.co/40x40.png', status: 'On-Break', route: null },
 ];
 
 const MOCK_CAMERAS: Camera[] = [
@@ -35,6 +39,26 @@ const MOCK_CAMERAS: Camera[] = [
 ];
 
 const CAMERA_STORAGE_KEY = 'drishti-planning-camera-positions'; // Use planning positions
+
+// Helper function to generate random incidents
+const generateRandomIncident = (cameras: Camera[]): Incident => {
+    const types: Incident['type'][] = ['CrowdSurge', 'Altercation', 'Medical', 'UnattendedObject'];
+    const severities: Incident['severity'][] = ['Low', 'Medium', 'High'];
+    const randomCamera = cameras[Math.floor(Math.random() * cameras.length)];
+
+    return {
+        id: `inc-${Date.now()}-${Math.random()}`,
+        type: types[Math.floor(Math.random() * types.length)],
+        description: `A new ${types[Math.floor(Math.random() * 4)]} event has been detected near ${randomCamera.name}.`,
+        timestamp: new Date(),
+        location: {
+            lat: randomCamera.location.lat + (Math.random() - 0.5) * 0.001,
+            lng: randomCamera.location.lng + (Math.random() - 0.5) * 0.001,
+        },
+        severity: severities[Math.floor(Math.random() * severities.length)],
+        source: randomCamera.id,
+    };
+};
 
 function Dashboard() {
   const [activeTab, setActiveTab] = useState('map');
@@ -59,6 +83,14 @@ function Dashboard() {
   const [mapZoom, setMapZoom] = useState(15);
   const { toast } = useToast();
   const [isCommanderAtJunctionA, setIsCommanderAtJunctionA] = useState(false);
+  const routesLibrary = useMapsLibrary('routes');
+  const directionsServiceRef = useRef<google.maps.DirectionsService>();
+
+  useEffect(() => {
+    if (routesLibrary) {
+        directionsServiceRef.current = new routesLibrary.DirectionsService();
+    }
+  }, [routesLibrary]);
 
   useEffect(() => {
     // Load camera positions from localStorage (set by planning page)
@@ -66,22 +98,55 @@ function Dashboard() {
     if (savedCameras) {
       try {
         const parsedCameras = JSON.parse(savedCameras);
-        // Basic validation
         if (Array.isArray(parsedCameras) && parsedCameras.every(c => c.id && c.location)) {
             setCameras(parsedCameras);
         } else {
-            console.error("Invalid camera data in localStorage, using default.");
             setCameras(MOCK_CAMERAS);
         }
       } catch (error) {
-        console.error("Failed to parse camera positions from localStorage", error);
         setCameras(MOCK_CAMERAS);
       }
     } else {
-        // If no saved data, use mocks
         setCameras(MOCK_CAMERAS);
     }
   }, []);
+
+  // Simulate real-time alerts
+  useEffect(() => {
+      if (cameras.length === 0) return;
+
+      const interval = setInterval(() => {
+          const newIncident = generateRandomIncident(cameras);
+          setIncidents(prev => [newIncident, ...prev]);
+          setAlerts(prev => [newIncident, ...prev].sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime()));
+          
+          toast({
+            title: `New ${newIncident.severity} Severity Alert`,
+            description: newIncident.description,
+          });
+
+          // If high severity, calculate route for commander
+          if (newIncident.severity === 'High' && directionsServiceRef.current) {
+            const commander = staff.find(s => s.role === 'Commander');
+            if (commander) {
+                const request: google.maps.DirectionsRequest = {
+                    origin: commander.location,
+                    destination: newIncident.location,
+                    travelMode: google.maps.TravelMode.DRIVING,
+                };
+                directionsServiceRef.current.route(request, (result, status) => {
+                    if (status === 'OK' && result) {
+                        handleDirectionsChange(result, null);
+                        setSelectedIncident(newIncident);
+                    }
+                });
+            }
+          }
+
+      }, 15000); // New alert every 15 seconds
+
+      return () => clearInterval(interval);
+  }, [cameras, toast, staff]);
 
   const handleAlertClick = useCallback((alert: Incident) => {
     setSelectedIncident(alert);
