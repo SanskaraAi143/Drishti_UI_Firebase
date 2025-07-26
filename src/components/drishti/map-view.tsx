@@ -144,7 +144,6 @@ const DirectionsRenderer = ({
         if (!routesLibrary || !map) return;
         if (!directionsRenderer) {
             const renderer = new routesLibrary.DirectionsRenderer({
-                map,
                 suppressMarkers: true,
                 polylineOptions: {
                     strokeColor: color,
@@ -165,11 +164,12 @@ const DirectionsRenderer = ({
     useEffect(() => {
         if (!directionsRenderer) return;
         if (directions && render) {
+            directionsRenderer.setMap(map);
             directionsRenderer.setDirections(directions);
         } else {
-            directionsRenderer.setDirections(null);
+            directionsRenderer.setMap(null);
         }
-    }, [directionsRenderer, directions, render]);
+    }, [directionsRenderer, directions, render, map]);
 
     useEffect(() => {
         if (directions && onDirectionsChange) {
