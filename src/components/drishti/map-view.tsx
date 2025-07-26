@@ -109,7 +109,8 @@ export default function MapView({ center, zoom, staff, incidents, layers, onInci
   if (!apiKey) {
     return (
       <div className="w-full h-full bg-muted flex items-center justify-center p-4 text-center">
-        <p>Google Maps API key is missing. Please set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in your environment variables.</p>
+        <p className="text-red-500 font-semibold">Google Maps API key is missing. Please set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in your environment variables.</p>
+        <p className="text-sm text-muted-foreground mt-2">This is a required configuration to display the map. Please refer to the Google Maps Platform documentation to get a key.</p>
       </div>
     );
   }
