@@ -29,6 +29,7 @@ const getRoleHint = (role: Staff['role']) => {
         case 'Security': return 'security guard';
         case 'Medical': return 'paramedic';
         case 'Operations': return 'event manager';
+        case 'Commander': return 'commander portrait';
         default: return 'person portrait';
     }
 }

@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MapPin, UserCheck, UserX, Clock } from 'lucide-react';
+import { MapPin, UserCheck, UserX, Clock, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface StaffViewProps {
@@ -17,6 +17,7 @@ const statusIcons = {
     Patrolling: <UserCheck className="h-4 w-4 text-green-400" />,
     Responding: <UserX className="h-4 w-4 text-red-400" />,
     'On-Break': <Clock className="h-4 w-4 text-yellow-400" />,
+    Monitoring: <Shield className="h-4 w-4 text-blue-400" />
 }
 
 const getRoleHint = (role: Staff['role']) => {
@@ -24,6 +25,7 @@ const getRoleHint = (role: Staff['role']) => {
         case 'Security': return 'security guard';
         case 'Medical': return 'paramedic';
         case 'Operations': return 'event manager';
+        case 'Commander': return 'commander portrait';
         default: return 'person portrait';
     }
 }

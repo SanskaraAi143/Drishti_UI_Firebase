@@ -16,10 +16,10 @@ export type Alert = {
 export type Staff = {
   id: string;
   name: string;
-  role: 'Security' | 'Medical' | 'Operations';
+  role: 'Security' | 'Medical' | 'Operations' | 'Commander';
   location: Location;
   avatar: string;
-  status: 'Patrolling' | 'Responding' | 'On-Break';
+  status: 'Patrolling' | 'Responding' | 'On-Break' | 'Monitoring';
 };
 
 export type Incident = Alert;
