@@ -4,8 +4,8 @@ import type { Alert } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { IncidentIcon } from '../icons/incident-icons';
-import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { ClientOnlyTimestamp } from './client-only-timestamp';
 
 interface AlertsFeedProps {
   alerts: Alert[];
@@ -45,9 +45,7 @@ export default function AlertsFeed({ alerts, onAlertClick }: AlertsFeedProps) {
                 <p className="font-semibold text-sm text-foreground">{alert.type.replace(/([A-Z])/g, ' $1').trim()}</p>
                 <p className="text-xs text-muted-foreground">{alert.description}</p>
               </div>
-              <p className="text-xs text-muted-foreground whitespace-nowrap">
-                {formatDistanceToNow(alert.timestamp, { addSuffix: true })}
-              </p>
+              <ClientOnlyTimestamp timestamp={alert.timestamp} />
             </CardContent>
           </Card>
         ))}
