@@ -46,7 +46,7 @@ const MOCK_STAFF: Staff[] = [
 ];
 
 const MOCK_CAMERAS: Camera[] = [
-    { id: 'cam-a', name: 'Camera A (Junction)', location: { lat: 12.9685, lng: 77.5913 }, streamUrl: 'https://placehold.co/640x480.png?text=Live+Feed+1' },
+    { id: 'cam-a', name: 'Zone A', location: { lat: 12.9685, lng: 77.5913 }, streamUrl: 'https://placehold.co/640x480.png?text=Live+Feed+1' },
     { id: 'cam-b', name: 'Camera B (Zone B)', location: generateRandomPoint(MOCK_CENTER, 400), streamUrl: 'https://placehold.co/640x480.png?text=Live+Feed+2' },
     { id: 'cam-c', name: 'Camera C (Zone C)', location: generateRandomPoint(MOCK_CENTER, 400), streamUrl: 'https://placehold.co/640x480.png?text=Live+Feed+3' },
 ];
