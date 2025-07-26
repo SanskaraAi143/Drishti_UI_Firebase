@@ -112,14 +112,18 @@ export default function MapView({ center, zoom, staff, incidents, layers, onInci
             NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=YOUR_API_KEY_HERE
         </pre>
         <p className="text-xs text-muted-foreground mt-4 max-w-md">
-          Ensure the Maps JavaScript API and Visualization Library are enabled and that billing is active for your key in the Google Cloud Console.
+          Ensure the Maps JavaScript API is enabled and that billing is active for your key in the Google Cloud Console.
         </p>
       </div>
     );
   }
 
   return (
-    <APIProvider apiKey={apiKey}>
+    <APIProvider 
+        apiKey={apiKey}
+        onLoad={() => console.log('Maps API loaded.')}
+        solutionChannel="GMP_devsite_samples_v3_rgmautocomplete"
+    >
       <div className="w-full h-full">
           <Map
             defaultCenter={{ lat: 12.9716, lng: 77.5946 }}
