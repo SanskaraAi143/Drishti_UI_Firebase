@@ -32,10 +32,10 @@ const MOCK_STAFF: Staff[] = [
 ];
 
 const MOCK_CAMERAS: Camera[] = [
-    { id: 'cam-a', name: 'Camera A (Zone A)', location: { lat: 12.9685, lng: 77.5913 }, streamUrl: 'https://placehold.co/640x480.png?text=Live+Feed+1' },
-    { id: 'cam-b', name: 'Camera B (Zone B)', location: { lat: 12.9720, lng: 77.5980 }, streamUrl: 'https://placehold.co/640x480.png?text=Live+Feed+2' },
-    { id: 'cam-c', name: 'Camera C (Zone C)', location: { lat: 12.9760, lng: 77.5960 }, streamUrl: 'https://placehold.co/640x480.png?text=Live+Feed+3' },
-    { id: 'cam-d', name: 'Camera D (Zone D)', location: { lat: 12.9700, lng: 77.5960 }, streamUrl: 'https://placehold.co/640x480.png?text=Live+Feed+4' },
+    { id: 'cam-a', name: 'Camera A (Zone A)', location: { lat: 12.9685, lng: 77.5913 }, streamUrl: 'https://storage.googleapis.com/event_safety/cam_angle1.mp4' },
+    { id: 'cam-b', name: 'Camera B (Zone B)', location: { lat: 12.9720, lng: 77.5980 }, streamUrl: 'https://storage.googleapis.com/event_safety/cam_angle2.mp4' },
+    { id: 'cam-c', name: 'Camera C (Zone C)', location: { lat: 12.9760, lng: 77.5960 }, streamUrl: 'https://storage.googleapis.com/event_safety/cam_angle3.mp4' },
+    { id: 'cam-d', name: 'Camera D (Zone D)', location: { lat: 12.9700, lng: 77.5960 }, streamUrl: 'https://storage.googleapis.com/event_safety/cam_angle4.mp4' },
 ];
 
 const CAMERA_STORAGE_KEY = 'drishti-planning-camera-positions'; // Use planning positions
@@ -99,7 +99,12 @@ function Dashboard() {
       try {
         const parsedCameras = JSON.parse(savedCameras);
         if (Array.isArray(parsedCameras) && parsedCameras.every(c => c.id && c.location)) {
-            setCameras(parsedCameras);
+            // Merge saved locations with mock stream URLs
+            const cameraData = MOCK_CAMERAS.map(mc => {
+                const saved = parsedCameras.find(pc => pc.id === mc.id);
+                return saved ? { ...mc, location: saved.location } : mc;
+            });
+            setCameras(cameraData);
         } else {
             setCameras(MOCK_CAMERAS);
         }

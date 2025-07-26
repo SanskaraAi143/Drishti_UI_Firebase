@@ -18,52 +18,45 @@ import { Button } from '../ui/button';
 
 interface CameraViewProps {
     cameras: Camera[];
-    isCommanderAtJunctionA: boolean;
+    isCommanderAtJunctionA: boolean; // This prop seems specific, leaving for now
 }
+
+const renderMedia = (camera: Camera, isCommanderAtJunctionA?: boolean) => {
+    // Special case from original code, can be removed if not needed
+    if (camera.id === 'cam-a' && isCommanderAtJunctionA) {
+        return (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-lg font-semibold">Commander Arrived</p>
+            </div>
+        );
+    }
+    
+    if (camera.streamUrl.endsWith('.mp4')) {
+        return (
+            <video
+              src={camera.streamUrl}
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="w-full h-full object-cover"
+            />
+        );
+    }
+
+    return (
+        <Image
+            src={camera.streamUrl}
+            alt={camera.name}
+            fill
+            className="object-cover"
+            data-ai-hint="security camera"
+        />
+    );
+};
 
 export default function CameraView({ cameras, isCommanderAtJunctionA }: CameraViewProps) {
   const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
-
-  const renderCameraFeed = (camera: Camera) => {
-    switch(camera.id) {
-        case 'cam-a':
-            return isCommanderAtJunctionA ? (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-lg font-semibold">Commander Arrived</p>
-                </div>
-              ) : (
-                <video
-                  src="https://storage.googleapis.com/event_safety/Crowd%20Detection.mp4"
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  className="w-full h-full object-cover"
-                />
-              );
-        case 'cam-b':
-            return (
-                <video
-                  src="https://storage.googleapis.com/event_safety/Anamoly.mp4"
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  className="w-full h-full object-cover"
-                />
-            );
-        default:
-            return (
-                <Image
-                    src={camera.streamUrl}
-                    alt={camera.name}
-                    fill
-                    className="object-cover"
-                    data-ai-hint="security camera"
-                />
-            );
-    }
-  }
 
   return (
     <>
@@ -81,7 +74,7 @@ export default function CameraView({ cameras, isCommanderAtJunctionA }: CameraVi
             </CardHeader>
             <CardContent className="p-0">
               <AspectRatio ratio={16 / 9} className="bg-muted">
-                {renderCameraFeed(camera)}
+                {renderMedia(camera, isCommanderAtJunctionA)}
               </AspectRatio>
             </CardContent>
           </Card>
@@ -96,23 +89,7 @@ export default function CameraView({ cameras, isCommanderAtJunctionA }: CameraVi
           </DialogHeader>
           {selectedCamera && (
             <AspectRatio ratio={16 / 9} className="bg-muted rounded-md overflow-hidden">
-                 {selectedCamera.id === 'cam-b' ? 
-                    <video
-                        src="https://storage.googleapis.com/event_safety/Anamoly.mp4"
-                        autoPlay
-                        loop
-                        muted
-                        playsInline
-                        className="w-full h-full object-cover"
-                    /> :
-                    <Image
-                        src={selectedCamera.streamUrl.replace('640x480', '1280x720')}
-                        alt={selectedCamera.name}
-                        fill
-                        className="object-cover"
-                        data-ai-hint="security camera"
-                    />
-                 }
+                 {renderMedia(selectedCamera, isCommanderAtJunctionA)}
             </AspectRatio>
           )}
         </DialogContent>
@@ -120,4 +97,3 @@ export default function CameraView({ cameras, isCommanderAtJunctionA }: CameraVi
     </>
   );
 }
-
