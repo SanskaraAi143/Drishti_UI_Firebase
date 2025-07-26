@@ -1,7 +1,7 @@
 
 'use client';
-import React, { useState, useEffect } from 'react';
-import { APIProvider, Map, AdvancedMarker, useMap } from '@vis.gl/react-google-maps';
+import React, { useState, useEffect, useCallback } from 'react';
+import { APIProvider, Map, AdvancedMarker, useMap, InfoWindow } from '@vis.gl/react-google-maps';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -84,6 +84,34 @@ const Polygon = (props: google.maps.PolygonOptions) => {
     return null;
 };
 
+const AiSuggestionHighlight = ({ center, radius, onClose }: { center: google.maps.LatLngLiteral, radius: number, onClose: ()=>void }) => {
+    const map = useMap();
+    const [circle, setCircle] = useState<google.maps.Circle | null>(null);
+    useEffect(() => {
+        if(!map) return;
+        if(!circle) {
+            const c = new google.maps.Circle({
+                strokeColor: "#FFC107",
+                strokeOpacity: 0.8,
+                strokeWeight: 2,
+                fillColor: "#FFC107",
+                fillOpacity: 0.35,
+                map,
+                center: center,
+                radius: radius,
+            });
+            setCircle(c);
+        }
+        return () => {
+            if(circle){
+                circle.setMap(null);
+            }
+        }
+    }, [map, center, radius, circle]);
+
+    return <InfoWindow position={center} onCloseClick={onClose}><p>Consider placing assets in this area.</p></InfoWindow>
+}
+
 
 export function PlannerWorkspace({ planId }: { planId: string }) {
     const [planData, setPlanData] = useState<any>(null);
@@ -92,6 +120,7 @@ export function PlannerWorkspace({ planId }: { planId: string }) {
     const [mapCenter, setMapCenter] = useState(MOCK_CENTER);
     const [aiRecommendations, setAiRecommendations] = useState<GenerateSafetyPlanOutput['recommendations']>([]);
     const [isAiLoading, setIsAiLoading] = useState(true);
+    const [highlight, setHighlight] = useState<{center: google.maps.LatLngLiteral, radius: number} | null>(null);
     const mapRef = React.useRef<google.maps.Map>(null);
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     const { toast } = useToast();
@@ -157,8 +186,6 @@ export function PlannerWorkspace({ planId }: { planId: string }) {
         const map = mapRef.current;
         if (!assetId || !map) return;
         
-        // This logic to get lat/lng from clientX/Y is not fully accurate without
-        // considering the map container's position. This is a simplification.
         const mapContainer = map.getDiv();
         const rect = mapContainer.getBoundingClientRect();
         const x = e.clientX - rect.left;
@@ -199,6 +226,30 @@ export function PlannerWorkspace({ planId }: { planId: string }) {
         toast({ title: "Asset Updated" });
     }
 
+    const handleAiAction = (rec: GenerateSafetyPlanOutput['recommendations'][0]) => {
+        if (!planData?.geofence || planData.geofence.length === 0) {
+            toast({ variant: 'destructive', title: 'Geofence not set', description: 'Please define a geofence first.' });
+            return;
+        }
+
+        const bounds = new window.google.maps.LatLngBounds();
+        planData.geofence.forEach((p: any) => bounds.extend(p));
+        const center = bounds.getCenter();
+        
+        // Simple mock logic to highlight a random point within the geofence
+        const lat = center.lat() + (Math.random() - 0.5) * 0.002;
+        const lng = center.lng() + (Math.random() - 0.5) * 0.002;
+
+        setHighlight({ center: { lat, lng }, radius: 100 });
+        if(mapRef.current) {
+            // @ts-ignore
+            mapRef.current.panTo({ lat, lng });
+            // @ts-ignore
+            mapRef.current.setZoom(17);
+        }
+
+    }
+
     if (!apiKey) return <div>Missing Google Maps API Key</div>;
     if (!planData) return <div>Loading plan...</div>;
 
@@ -226,6 +277,13 @@ export function PlannerWorkspace({ planId }: { planId: string }) {
                         {placedAssets.map(asset => (
                             <PlacedAssetMarker key={asset.id} asset={asset} onClick={() => setSelectedAsset(asset)} />
                         ))}
+                        {highlight && (
+                            <AiSuggestionHighlight 
+                                center={highlight.center} 
+                                radius={highlight.radius} 
+                                onClose={() => setHighlight(null)} 
+                            />
+                        )}
                     </Map>
                 </APIProvider>
             </div>
@@ -256,7 +314,7 @@ export function PlannerWorkspace({ planId }: { planId: string }) {
                                          <div key={index} className="p-3 rounded-md border bg-card">
                                             <p className="font-semibold text-sm">{rec.title}</p>
                                             <p className="text-xs text-muted-foreground">{rec.description}</p>
-                                            {rec.action && <Button size="sm" variant="link" className="p-0 h-auto mt-1">{rec.action}</Button>}
+                                            {rec.action && <Button size="sm" variant="link" className="p-0 h-auto mt-1" onClick={() => handleAiAction(rec)}>{rec.action}</Button>}
                                         </div>
                                     ))
                                 ) : (

@@ -50,10 +50,10 @@ Analyze the following event data:
 Based on this data, generate a list of 3-5 critical recommendations. For each recommendation, provide a clear title, a detailed description of what needs to be done and why, and a brief, actionable suggestion for the user.
 
 Example Recommendations:
-- If VIP Presence is Yes, suggest 360-degree camera coverage for all VIP routes and safe zones.
-- If a security concern is 'Crowd Control & Surge Risk', recommend placing barricades for serpentine queues and identify potential choke points.
-- If event sentiment is 'Controversial' or 'High-Tension', recommend establishing clear buffer zones and monitoring social media for threats.
-- For a 'Music Festival' with high attendance, suggest placement of multiple First Aid tents and clear signage for medical emergencies.
+- If VIP Presence is Yes, suggest 360-degree camera coverage for all VIP routes and safe zones. Your action could be "Highlight VIP Routes".
+- If a security concern is 'Crowd Control & Surge Risk', recommend placing barricades for serpentine queues and identify potential choke points. Your action could be "Highlight Choke Points".
+- If event sentiment is 'Controversial' or 'High-Tension', recommend establishing clear buffer zones and monitoring social media for threats. Your action could be "Show Buffer Zone Example".
+- For a 'Music Festival' with high attendance, suggest placement of multiple First Aid tents and clear signage for medical emergencies. Your action could be "Suggest Medical Tent Locations".
 
 Focus on providing practical advice that a planner can immediately implement on the map. Frame your response as a security expert giving professional advice.`,
 });
