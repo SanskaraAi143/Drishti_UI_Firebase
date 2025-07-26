@@ -1,6 +1,7 @@
 
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { APIProvider, Map, AdvancedMarker, useMap, InfoWindow } from '@vis.gl/react-google-maps';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,7 +17,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Camera, Construction, Tent, Ambulance, TowerControl, Pin, Lightbulb, Loader } from 'lucide-react';
+import { Camera, Construction, Tent, Ambulance, TowerControl, Pin, Lightbulb, Loader, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { generateSafetyPlan, type GenerateSafetyPlanOutput } from '@/ai/flows/generate-safety-plan-flow';
 
@@ -121,6 +122,7 @@ function getStaticMapUrl(geofence: {lat: number, lng: number}[], apiKey: string)
 
 
 export function PlannerWorkspace({ planId }: { planId: string }) {
+    const router = useRouter();
     const [planData, setPlanData] = useState<any>(null);
     const [placedAssets, setPlacedAssets] = useState<any[]>([]);
     const [selectedAsset, setSelectedAsset] = useState<any | null>(null);
@@ -240,6 +242,11 @@ export function PlannerWorkspace({ planId }: { planId: string }) {
         setSelectedAsset(null);
         toast({ title: "Asset Updated" });
     }
+    
+    const handleProceedToBriefing = () => {
+        saveAssets(placedAssets); // Ensure everything is saved
+        router.push(`/planning/${planId}/briefing`);
+    }
 
     const handleAiAction = (rec: GenerateSafetyPlanOutput['recommendations'][0]) => {
         if (!planData?.geofence || planData.geofence.length === 0) {
@@ -273,6 +280,7 @@ export function PlannerWorkspace({ planId }: { planId: string }) {
             <div className="flex-1 h-full relative">
                 <APIProvider apiKey={apiKey}>
                     <Map
+                        // @ts-ignore
                         ref={mapRef}
                         center={mapCenter}
                         defaultZoom={15}
@@ -328,7 +336,7 @@ export function PlannerWorkspace({ planId }: { planId: string }) {
                                     aiRecommendations.map((rec, index) => (
                                          <div key={index} className="p-3 rounded-md border bg-card">
                                             <p className="font-semibold text-sm">{rec.title}</p>
-                                            <p className="text-xs text-muted-foreground">{rec.description}</p>
+                                            <p className="text-xs text-muted-foreground whitespace-pre-wrap">{rec.description}</p>
                                             {rec.action && <Button size="sm" variant="link" className="p-0 h-auto mt-1" onClick={() => handleAiAction(rec)}>{rec.action}</Button>}
                                         </div>
                                     ))
@@ -339,6 +347,12 @@ export function PlannerWorkspace({ planId }: { planId: string }) {
                         </Card>
                     </TabsContent>
                 </Tabs>
+                <div className="p-4 border-t">
+                    <Button className="w-full" size="lg" onClick={handleProceedToBriefing}>
+                        Generate Briefing
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                </div>
             </aside>
             <Dialog open={!!selectedAsset} onOpenChange={(isOpen) => !isOpen && setSelectedAsset(null)}>
                 <DialogContent>

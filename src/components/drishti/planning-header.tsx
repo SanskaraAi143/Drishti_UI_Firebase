@@ -40,7 +40,7 @@ export function PlanningHeader({ currentStep, planId }: PlanningHeaderProps) {
                 currentStep > step.number && "text-accent",
                 (currentStep < step.number || !planId) && step.number > 2 && "text-muted-foreground pointer-events-none"
               )}
-              disabled={(currentStep < step.number || !planId) && step.number > 2}
+              disabled={(currentStep < step.number || !planId) && step.number > 2 && step.name !== 'Intelligence Intake'}
               asChild
             >
               <Link href={step.href}>
