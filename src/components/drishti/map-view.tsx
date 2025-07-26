@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
-import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
-import type { Location, Staff, Incident, MapLayers } from '@/lib/types';
+import React, { useEffect, useState } from 'react';
+import { APIProvider, Map, AdvancedMarker, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
+import type { Location, Staff, Incident, MapLayers, Route } from '@/lib/types';
 import { IncidentIcon } from '../icons/incident-icons';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
@@ -22,13 +22,12 @@ interface MapViewProps {
   layers: MapLayers;
   onIncidentClick: (incident: Incident) => void;
   onMapInteraction: (center: Location, zoom: number) => void;
+  directionsRequest: google.maps.DirectionsRequest | null;
+  onDirectionsChange: (result: google.maps.DirectionsResult | null, route: Route | null) => void;
 }
 
 const getRoleHint = (role: Staff['role']) => {
     switch(role) {
-        case 'Security': return 'security guard';
-        case 'Medical': return 'paramedic';
-        case 'Operations': return 'event manager';
         case 'Commander': return 'commander portrait';
         default: return 'person portrait';
     }
@@ -59,10 +58,12 @@ const IncidentMarker = ({ incident, onClick }: { incident: Incident; onClick: (i
               style={{ borderColor: severityColors[incident.severity] }}
               color={severityColors[incident.severity]}
           />
-          <span className="absolute -top-1 -right-1 flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ backgroundColor: severityColors[incident.severity] }}></span>
-              <span className="relative inline-flex rounded-full h-3 w-3" style={{ backgroundColor: severityColors[incident.severity] }}></span>
-          </span>
+          {incident.severity === 'High' && (
+            <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ backgroundColor: severityColors[incident.severity] }}></span>
+                <span className="relative inline-flex rounded-full h-3 w-3" style={{ backgroundColor: severityColors[incident.severity] }}></span>
+            </span>
+          )}
       </div>
     </AdvancedMarker>
   );
@@ -99,6 +100,59 @@ const MapLayersComponent = ({ layers, incidents }: Pick<MapViewProps, 'layers' |
     return null;
 }
 
+const DirectionsRenderer = ({ request, onDirectionsChange }: { request: google.maps.DirectionsRequest | null; onDirectionsChange: MapViewProps['onDirectionsChange'] }) => {
+    const map = useMap();
+    const routesLibrary = useMapsLibrary('routes');
+    const [directionsService, setDirectionsService] = useState<google.maps.DirectionsService>();
+    const [directionsResult, setDirectionsResult] = useState<google.maps.DirectionsResult | null>(null);
+
+    useEffect(() => {
+        if (!routesLibrary || !map) return;
+        setDirectionsService(new routesLibrary.DirectionsService());
+    }, [routesLibrary, map]);
+
+    useEffect(() => {
+        if (!directionsService || !map || !request) {
+            setDirectionsResult(null);
+            onDirectionsChange(null, null);
+            return;
+        }
+
+        directionsService.route(request).then(response => {
+            setDirectionsResult(response);
+            const leg = response.routes[0]?.legs[0];
+            if (leg && leg.distance && leg.duration && leg.steps) {
+                const route: Route = {
+                    distance: leg.distance.text,
+                    duration: leg.duration.text,
+                    steps: leg.steps.map(step => ({
+                        instructions: step.instructions.replace(/<[^>]*>/g, ""), // strip html tags
+                        distance: step.distance!.text,
+                        duration: step.duration!.text
+                    })),
+                    googleMapsUrl: `https://www.google.com/maps/dir/?api=1&origin=${request.origin.lat},${request.origin.lng}&destination=${request.destination.lat},${request.destination.lng}&travelmode=driving`
+                };
+                onDirectionsChange(response, route);
+            }
+        });
+    }, [directionsService, map, request, onDirectionsChange]);
+
+    if (!directionsResult) return null;
+
+    const Polyline = routesLibrary?.Polyline as any;
+    if (!Polyline) return null;
+
+    return (
+        <Polyline
+            path={directionsResult.routes[0]?.overview_path}
+            strokeColor="#4285F4"
+            strokeOpacity={0.8}
+            strokeWeight={6}
+        />
+    );
+};
+
+
 const MapEvents = ({ onMapInteraction }: Pick<MapViewProps, 'onMapInteraction'>) => {
   const map = useMap();
 
@@ -127,7 +181,7 @@ const MapEvents = ({ onMapInteraction }: Pick<MapViewProps, 'onMapInteraction'>)
 }
 
 
-const MapContent = ({ staff, incidents, layers, onIncidentClick, onMapInteraction }: Omit<MapViewProps, 'center' | 'zoom'>) => {
+const MapContent = ({ staff, incidents, layers, onIncidentClick, onMapInteraction, directionsRequest, onDirectionsChange }: Omit<MapViewProps, 'center' | 'zoom'>) => {
   const map = useMap();
 
   if (!map) {
@@ -144,12 +198,13 @@ const MapContent = ({ staff, incidents, layers, onIncidentClick, onMapInteractio
       {layers.incidents && incidents.map(i => <IncidentMarker key={`incident-${i.id}`} incident={i} onClick={onIncidentClick} />)}
       <MapLayersComponent layers={layers} incidents={incidents} />
       <MapEvents onMapInteraction={onMapInteraction} />
+      <DirectionsRenderer request={directionsRequest} onDirectionsChange={onDirectionsChange} />
     </>
   )
 }
 
 
-export default function MapView({ center, zoom, staff, incidents, layers, onIncidentClick, onMapInteraction }: MapViewProps) {
+export default function MapView({ center, zoom, staff, incidents, layers, onIncidentClick, onMapInteraction, directionsRequest, onDirectionsChange }: MapViewProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   if (!apiKey) {
@@ -159,7 +214,7 @@ export default function MapView({ center, zoom, staff, incidents, layers, onInci
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>Google Maps API Key is Missing</AlertTitle>
             <AlertDescription>
-                <p>To display the map, you need to add your Google Maps API key to the `.env` file:</p>
+                <p>To display the map, you need to add your Google Maps API key to the `.env.local` file:</p>
                 <pre className="mt-2 bg-card p-2 rounded-md text-xs text-left">
                     NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=YOUR_API_KEY
                 </pre>
@@ -174,6 +229,7 @@ export default function MapView({ center, zoom, staff, incidents, layers, onInci
     <APIProvider 
         apiKey={apiKey}
         onLoad={() => console.log('Maps API loaded.')}
+        libraries={['visualization', 'routes']}
     >
       <div className="w-full h-full">
           <Map
@@ -192,6 +248,8 @@ export default function MapView({ center, zoom, staff, incidents, layers, onInci
                 layers={layers}
                 onIncidentClick={onIncidentClick}
                 onMapInteraction={onMapInteraction}
+                directionsRequest={directionsRequest}
+                onDirectionsChange={onDirectionsChange}
               />
           </Map>
       </div>

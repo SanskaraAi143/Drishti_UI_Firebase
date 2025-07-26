@@ -16,7 +16,7 @@ export type Alert = {
 export type Staff = {
   id: string;
   name: string;
-  role: 'Security' | 'Medical' | 'Operations' | 'Commander';
+  role: 'Commander';
   location: Location;
   avatar: string;
   status: 'Patrolling' | 'Responding' | 'On-Break' | 'Monitoring';
@@ -54,3 +54,14 @@ export type LostAndFoundPerson = {
     lastSeenTime: Date;
     status: 'Searching' | 'Found' | 'Not Found';
 };
+
+export type Route = {
+  distance: string;
+  duration: string;
+  steps: {
+    instructions: string;
+    distance: string;
+    duration: string;
+  }[];
+  googleMapsUrl: string;
+}

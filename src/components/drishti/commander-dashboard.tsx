@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import type { Alert, Staff, Incident, MapLayers, Location, Camera } from '@/lib/types';
+import type { Alert, Staff, Incident, MapLayers, Location, Route } from '@/lib/types';
 import Sidebar from '@/components/drishti/sidebar';
 import MapView from '@/components/drishti/map-view';
 import IncidentModal from '@/components/drishti/incident-modal';
@@ -42,6 +42,8 @@ function Dashboard() {
   const [staff, setStaff] = useState<Staff[]>(MOCK_STAFF);
   const [incidents, setIncidents] = useState<Incident[]>([...MOCK_ALERTS]);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
+  const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
+  const [routeInfo, setRouteInfo] = useState<Route | null>(null);
   const [mapLayers, setMapLayers] = useState<MapLayers>({
     heatmap: true,
     staff: true,
@@ -65,12 +67,27 @@ function Dashboard() {
     };
   }, []);
 
-  const handleAlertClick = useCallback((alert: Alert) => {
+  const handleAlertClick = useCallback((alert: Incident) => {
     setSelectedIncident(alert);
     setMapCenter(alert.location);
     setMapZoom(18);
     setActiveTab('map');
-  }, []);
+
+    if (alert.severity === 'High') {
+      const commander = staff.find(s => s.role === 'Commander');
+      if (commander) {
+        // Trigger directions calculation in MapView
+        setDirections({
+          origin: commander.location,
+          destination: alert.location,
+          travelMode: window.google.maps.TravelMode.DRIVING,
+        } as any);
+      }
+    } else {
+      setDirections(null);
+      setRouteInfo(null);
+    }
+  }, [staff]);
 
   const handleStaffClick = useCallback((staffMember: Staff) => {
     setMapCenter(staffMember.location);
@@ -87,6 +104,15 @@ function Dashboard() {
     setMapZoom(zoom);
   }, []);
 
+  const handleDirectionsChange = useCallback((
+    result: google.maps.DirectionsResult | null,
+    route: Route | null
+  ) => {
+    if (result) {
+      setDirections(result);
+      setRouteInfo(route);
+    }
+  }, []);
 
   const renderActiveView = () => {
     switch (activeTab) {
@@ -96,6 +122,7 @@ function Dashboard() {
         return <LostAndFound />;
       case 'map':
       default:
+        const commander = staff.find(s => s.role === 'Commander');
         return (
           <MapView
             center={mapCenter}
@@ -105,6 +132,12 @@ function Dashboard() {
             layers={mapLayers}
             onIncidentClick={handleAlertClick}
             onMapInteraction={handleMapInteraction}
+            directionsRequest={selectedIncident?.severity === 'High' && commander ? {
+              origin: commander.location,
+              destination: selectedIncident.location,
+              travelMode: google.maps.TravelMode.DRIVING
+            } : null}
+            onDirectionsChange={handleDirectionsChange}
           />
         );
     }
@@ -129,7 +162,14 @@ function Dashboard() {
         <IncidentModal
           incident={selectedIncident}
           isOpen={!!selectedIncident}
-          onOpenChange={(isOpen) => !isOpen && setSelectedIncident(null)}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) {
+              setSelectedIncident(null);
+              setDirections(null);
+              setRouteInfo(null);
+            }
+          }}
+          route={routeInfo}
         />
       </div>
   );
