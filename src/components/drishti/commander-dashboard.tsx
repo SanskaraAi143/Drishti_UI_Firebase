@@ -35,7 +35,7 @@ const MOCK_ALERTS: Alert[] = [];
 // Pre-defined valid road coordinates for the Commander
 const COMMANDER_PATROL_ROUTE: Location[] = [
     { lat: 12.9740, lng: 77.5920 },
-    { lat: 12.9740, lng: 77.5980 },
+    { lat: 12.9760, lng: 77.5960 },
     { lat: 12.9720, lng: 77.5980 },
     { lat: 12.9700, lng: 77.5960 },
     { lat: 12.9690, lng: 77.5920 },
@@ -43,7 +43,7 @@ const COMMANDER_PATROL_ROUTE: Location[] = [
 ];
 
 const MOCK_STAFF: Staff[] = [
-  { id: 's1', name: 'Commander', role: 'Commander', location: COMMANDER_PATROL_ROUTE[0], avatar: `https://placehold.co/40x40.png`, status: 'Monitoring' },
+  { id: 's1', name: 'Commander', role: 'Commander', location: COMMANDER_PATROL_ROUTE[0], avatar: `https://placehold.co/40x40.png`, status: 'Monitoring', route: null },
 ];
 
 const MOCK_CAMERAS: Camera[] = [
@@ -61,8 +61,11 @@ function Dashboard() {
   const [cameras, setCameras] = useState<Camera[]>(MOCK_CAMERAS);
   const [incidents, setIncidents] = useState<Incident[]>([...MOCK_ALERTS]);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
-  const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
-  const [routeInfo, setRouteInfo] = useState<Route | null>(null);
+  const [incidentRoute, setIncidentRoute] = useState<{
+    directions: google.maps.DirectionsResult | null;
+    routeInfo: Route | null;
+  }>({ directions: null, routeInfo: null });
+  
   const [mapLayers, setMapLayers] = useState<MapLayers>({
     heatmap: true,
     staff: true,
@@ -97,46 +100,13 @@ function Dashboard() {
     }
   }, []);
 
-  useEffect(() => {
-    let patrolIndex = 0;
-    const staffInterval = setInterval(() => {
-        setStaff(prevStaff => {
-            // Only move the commander if they are not being routed to an incident
-            if (!directions) {
-                patrolIndex = (patrolIndex + 1) % COMMANDER_PATROL_ROUTE.length;
-                const newLocation = COMMANDER_PATROL_ROUTE[patrolIndex];
-                return prevStaff.map(s => s.role === 'Commander' ? { ...s, location: newLocation } : s);
-            }
-            return prevStaff;
-        });
-    }, 5000); // Update staff location every 5 seconds
-
-    return () => {
-      clearInterval(staffInterval);
-    };
-  }, [directions]);
-
   const handleAlertClick = useCallback((alert: Incident) => {
     setSelectedIncident(alert);
     setMapCenter(alert.location);
     setMapZoom(18);
     setActiveTab('map');
+  }, []);
 
-    if (alert.severity === 'High') {
-      const commander = staff.find(s => s.role === 'Commander');
-      if (commander) {
-        // Trigger directions calculation in MapView
-        setDirections({
-          origin: commander.location,
-          destination: alert.location,
-          travelMode: window.google.maps.TravelMode.DRIVING,
-        } as any);
-      }
-    } else {
-      setDirections(null);
-      setRouteInfo(null);
-    }
-  }, [staff]);
 
   const handleStaffClick = useCallback((staffMember: Staff) => {
     setMapCenter(staffMember.location);
@@ -157,13 +127,7 @@ function Dashboard() {
     result: google.maps.DirectionsResult | null,
     route: Route | null
   ) => {
-    if (result) {
-      setDirections(result);
-      setRouteInfo(route);
-    } else {
-        setDirections(null);
-        setRouteInfo(null);
-    }
+    setIncidentRoute({ directions: result, routeInfo: route });
   }, []);
   
   const handleCameraClick = useCallback((camera: Camera) => {
@@ -193,25 +157,23 @@ function Dashboard() {
         return <LostAndFound />;
       case 'map':
       default:
-        const commander = staff.find(s => s.role === 'Commander');
         return (
           <MapView
             center={mapCenter}
             zoom={mapZoom}
             staff={staff}
+            setStaff={setStaff}
             incidents={incidents}
             cameras={cameras}
             layers={mapLayers}
+            patrolRoute={COMMANDER_PATROL_ROUTE}
             onIncidentClick={handleAlertClick}
             onCameraClick={handleCameraClick}
             onCameraMove={handleCameraMove}
             onMapInteraction={handleMapInteraction}
-            directionsRequest={selectedIncident?.severity === 'High' && commander ? {
-              origin: commander.location,
-              destination: selectedIncident.location,
-              travelMode: google.maps.TravelMode.DRIVING
-            } : null}
-            onDirectionsChange={handleDirectionsChange}
+            incidentDirections={incidentRoute.directions}
+            onIncidentDirectionsChange={handleDirectionsChange}
+            isIncidentRouteActive={!!selectedIncident && selectedIncident.severity === 'High'}
           />
         );
     }
@@ -239,11 +201,10 @@ function Dashboard() {
           onOpenChange={(isOpen) => {
             if (!isOpen) {
               setSelectedIncident(null);
-              setDirections(null);
-              setRouteInfo(null);
+              setIncidentRoute({ directions: null, routeInfo: null });
             }
           }}
-          route={routeInfo}
+          route={incidentRoute.routeInfo}
         />
       </div>
   );

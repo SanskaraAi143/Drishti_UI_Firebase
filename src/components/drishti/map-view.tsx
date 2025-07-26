@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { APIProvider, Map, AdvancedMarker, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 import type { Location, Staff, Incident, MapLayers, Route, Camera } from '@/lib/types';
 import { IncidentIcon } from '../icons/incident-icons';
@@ -19,15 +19,18 @@ interface MapViewProps {
   center: Location;
   zoom: number;
   staff: Staff[];
+  setStaff: React.Dispatch<React.SetStateAction<Staff[]>>;
   incidents: Incident[];
   cameras: Camera[];
   layers: MapLayers;
+  patrolRoute: Location[];
   onIncidentClick: (incident: Incident) => void;
   onCameraClick: (camera: Camera) => void;
   onCameraMove: (cameraId: string, newLocation: Location) => void;
   onMapInteraction: (center: Location, zoom: number) => void;
-  directionsRequest: google.maps.DirectionsRequest | null;
-  onDirectionsChange: (result: google.maps.DirectionsResult | null, route: Route | null) => void;
+  incidentDirections: google.maps.DirectionsResult | null;
+  onIncidentDirectionsChange: (result: google.maps.DirectionsResult | null, route: Route | null) => void;
+  isIncidentRouteActive: boolean;
 }
 
 const getRoleHint = (role: Staff['role']) => {
@@ -120,60 +123,213 @@ const MapLayersComponent = ({ layers, incidents }: Pick<MapViewProps, 'layers' |
     return null;
 }
 
-const DirectionsRenderer = ({ request, onDirectionsChange }: { request: google.maps.DirectionsRequest | null; onDirectionsChange: MapViewProps['onDirectionsChange'] }) => {
+const DirectionsRenderer = ({ 
+    directions,
+    onDirectionsChange,
+    routeId,
+    color,
+}: { 
+    directions: google.maps.DirectionsResult | null; 
+    onDirectionsChange?: (result: google.maps.DirectionsResult | null, route: Route | null) => void;
+    routeId: string;
+    color: string;
+}) => {
     const map = useMap();
     const routesLibrary = useMapsLibrary('routes');
-    const [directionsService, setDirectionsService] = useState<google.maps.DirectionsService>();
-    const [directionsRenderer, setDirectionsRenderer] = useState<google.maps.DirectionsRenderer>();
+    const [directionsRenderer, setDirectionsRenderer] = useState<google.maps.DirectionsRenderer | null>(null);
 
     useEffect(() => {
         if (!routesLibrary || !map) return;
-        setDirectionsService(new routesLibrary.DirectionsService());
-        setDirectionsRenderer(new routesLibrary.DirectionsRenderer({ 
-            map, 
-            suppressMarkers: true,
-            polylineOptions: {
-                strokeColor: '#4285F4',
-                strokeOpacity: 0.8,
-                strokeWeight: 6
-            }
-        }));
-    }, [routesLibrary, map]);
-
-    useEffect(() => {
-        if (!directionsService || !directionsRenderer) return;
-
-        if (!request) {
-            directionsRenderer.setDirections(null);
-            onDirectionsChange(null, null);
-            return;
+        if (!directionsRenderer) {
+            const renderer = new routesLibrary.DirectionsRenderer({
+                map,
+                suppressMarkers: true,
+                polylineOptions: {
+                    strokeColor: color,
+                    strokeOpacity: 0.8,
+                    strokeWeight: 6
+                },
+            });
+            setDirectionsRenderer(renderer);
         }
 
-        directionsService.route(request).then(response => {
-            directionsRenderer.setDirections(response);
-            const leg = response.routes[0]?.legs[0];
+        return () => {
+            if (directionsRenderer) {
+                directionsRenderer.setMap(null);
+            }
+        };
+    }, [routesLibrary, map, color]);
+
+    useEffect(() => {
+        if (!directionsRenderer) return;
+        if (directions) {
+            directionsRenderer.setDirections(directions);
+        } else {
+            directionsRenderer.setDirections(null);
+        }
+    }, [directionsRenderer, directions]);
+
+    useEffect(() => {
+        if (directions && onDirectionsChange) {
+            const leg = directions.routes[0]?.legs[0];
             if (leg && leg.distance && leg.duration && leg.steps) {
                 const route: Route = {
                     distance: leg.distance.text,
                     duration: leg.duration.text,
                     steps: leg.steps.map(step => ({
-                        instructions: step.instructions.replace(/<[^>]*>/g, ""), // strip html tags
+                        instructions: step.instructions.replace(/<[^>]*>/g, ""),
                         distance: step.distance!.text,
                         duration: step.duration!.text
                     })),
-                    googleMapsUrl: `https://www.google.com/maps/dir/?api=1&origin=${(request.origin as google.maps.LatLng).lat()},${(request.origin as google.maps.LatLng).lng()}&destination=${(request.destination as google.maps.LatLng).lat()},${(request.destination as google.maps.LatLng).lng()}&travelmode=driving`
+                    googleMapsUrl: `https://www.google.com/maps/dir/?api=1&origin=${leg.start_location.lat()},${leg.start_location.lng()}&destination=${leg.end_location.lat()},${leg.end_location.lng()}&travelmode=driving`
                 };
-                onDirectionsChange(response, route);
+                onDirectionsChange(directions, route);
             }
-        }).catch(e => {
-            console.error("Directions request failed", e);
-            directionsRenderer.setDirections(null);
+        } else if (onDirectionsChange) {
             onDirectionsChange(null, null);
-        });
-    }, [directionsService, directionsRenderer, request, onDirectionsChange]);
+        }
+    }, [directions, onDirectionsChange]);
 
     return null;
 };
+
+function usePatrol(
+    isPatrolActive: boolean,
+    patrolRoute: Location[],
+    onNewPatrolLeg: (directions: google.maps.DirectionsResult | null) => void
+) {
+    const routesLibrary = useMapsLibrary('routes');
+    const [directionsService, setDirectionsService] = useState<google.maps.DirectionsService>();
+    const patrolIndexRef = useRef(0);
+
+    useEffect(() => {
+        if (!routesLibrary) return;
+        setDirectionsService(new routesLibrary.DirectionsService());
+    }, [routesLibrary]);
+
+    useEffect(() => {
+        let patrolTimeout: NodeJS.Timeout;
+
+        const startPatrol = () => {
+            if (!directionsService || !isPatrolActive) return;
+            
+            const currentIndex = patrolIndexRef.current;
+            const nextIndex = (currentIndex + 1) % patrolRoute.length;
+            const origin = patrolRoute[currentIndex];
+            const destination = patrolRoute[nextIndex];
+
+            const request = {
+                origin,
+                destination,
+                travelMode: google.maps.TravelMode.DRIVING
+            };
+
+            directionsService.route(request).then(response => {
+                onNewPatrolLeg(response);
+                patrolIndexRef.current = nextIndex;
+
+                const durationInSeconds = response.routes[0].legs[0].duration?.value || 30;
+                patrolTimeout = setTimeout(startPatrol, (durationInSeconds + 5) * 1000); // Wait for route duration + 5s buffer
+            }).catch(e => {
+                console.error("Patrol route request failed", e);
+                onNewPatrolLeg(null);
+                 patrolTimeout = setTimeout(startPatrol, 10000); // Retry after 10s
+            });
+        };
+
+        if (isPatrolActive) {
+            startPatrol();
+        }
+
+        return () => {
+            clearTimeout(patrolTimeout);
+        };
+    }, [directionsService, isPatrolActive, patrolRoute, onNewPatrolLeg]);
+}
+
+function useMarkerAnimation(
+    route: google.maps.DirectionsResult | null,
+    onLocationUpdate: (location: Location) => void,
+    onAnimationComplete: () => void
+) {
+    const animationFrameRef = useRef<number>();
+    const routePathRef = useRef<Location[]>([]);
+    const startTimeRef = useRef<number | null>(null);
+
+    useEffect(() => {
+        if (route) {
+            const path = route.routes[0].overview_path.map(p => ({ lat: p.lat(), lng: p.lng() }));
+            routePathRef.current = path;
+            startTimeRef.current = null; // Reset start time for new route
+
+            const animate = (timestamp: number) => {
+                if (!startTimeRef.current) {
+                    startTimeRef.current = timestamp;
+                }
+
+                const progress = timestamp - startTimeRef.current;
+                const duration = (route.routes[0].legs[0].duration?.value || 30) * 1000;
+                const progressRatio = Math.min(progress / duration, 1);
+
+                const path = routePathRef.current;
+                const pathIndex = Math.floor(progressRatio * (path.length - 1));
+                const nextPointIndex = Math.min(pathIndex + 1, path.length - 1);
+                
+                const segmentProgress = (progressRatio * (path.length - 1)) - pathIndex;
+
+                const lat = path[pathIndex].lat + (path[nextPointIndex].lat - path[pathIndex].lat) * segmentProgress;
+                const lng = path[pathIndex].lng + (path[nextPointIndex].lng - path[pathIndex].lng) * segmentProgress;
+                
+                onLocationUpdate({ lat, lng });
+
+                if (progressRatio < 1) {
+                    animationFrameRef.current = requestAnimationFrame(animate);
+                } else {
+                    onAnimationComplete();
+                }
+            };
+
+            animationFrameRef.current = requestAnimationFrame(animate);
+        }
+
+        return () => {
+            if (animationFrameRef.current) {
+                cancelAnimationFrame(animationFrameRef.current);
+            }
+        };
+    }, [route, onLocationUpdate, onAnimationComplete]);
+}
+
+const CommanderPatrol = ({ staff, setStaff, patrolRoute, isIncidentRouteActive }: Pick<MapViewProps, 'staff' | 'setStaff' | 'patrolRoute' | 'isIncidentRouteActive'>) => {
+    const [patrolDirections, setPatrolDirections] = useState<google.maps.DirectionsResult | null>(null);
+    const commander = staff.find(s => s.role === 'Commander');
+
+    const handleNewPatrolLeg = useCallback((directions: google.maps.DirectionsResult | null) => {
+        setPatrolDirections(directions);
+    }, []);
+    
+    usePatrol(!isIncidentRouteActive, patrolRoute, handleNewPatrolLeg);
+
+    const handleLocationUpdate = useCallback((location: Location) => {
+        setStaff(prevStaff => prevStaff.map(s => 
+            s.role === 'Commander' ? { ...s, location } : s
+        ));
+    }, [setStaff]);
+
+    const handleAnimationComplete = useCallback(() => {
+       // The usePatrol hook will automatically start the next leg.
+    }, []);
+
+    useMarkerAnimation(
+        !isIncidentRouteActive ? patrolDirections : null,
+        handleLocationUpdate,
+        handleAnimationComplete
+    );
+
+    if (!commander || isIncidentRouteActive) return null;
+    
+    return <DirectionsRenderer directions={patrolDirections} routeId="patrol" color="#1E88E5" />;
+}
 
 
 const MapEvents = ({ onMapInteraction }: Pick<MapViewProps, 'onMapInteraction'>) => {
@@ -204,7 +360,7 @@ const MapEvents = ({ onMapInteraction }: Pick<MapViewProps, 'onMapInteraction'>)
 }
 
 
-const MapContent = ({ staff, incidents, cameras, layers, onIncidentClick, onCameraClick, onCameraMove, onMapInteraction, directionsRequest, onDirectionsChange }: Omit<MapViewProps, 'center' | 'zoom'>) => {
+const MapContent = ({ staff, setStaff, incidents, cameras, layers, onIncidentClick, onCameraClick, onCameraMove, onMapInteraction, patrolRoute, incidentDirections, onIncidentDirectionsChange, isIncidentRouteActive }: Omit<MapViewProps, 'center' | 'zoom'>) => {
   const map = useMap();
 
   if (!map) {
@@ -233,13 +389,26 @@ const MapContent = ({ staff, incidents, cameras, layers, onIncidentClick, onCame
       )}
       <MapLayersComponent layers={layers} incidents={incidents} />
       <MapEvents onMapInteraction={onMapInteraction} />
-      <DirectionsRenderer request={directionsRequest} onDirectionsChange={onDirectionsChange} />
+      {isIncidentRouteActive && (
+        <DirectionsRenderer 
+            directions={incidentDirections} 
+            onDirectionsChange={onIncidentDirectionsChange}
+            routeId="incident"
+            color="#D32F2F"
+        />
+      )}
+      <CommanderPatrol 
+        staff={staff}
+        setStaff={setStaff}
+        patrolRoute={patrolRoute}
+        isIncidentRouteActive={isIncidentRouteActive}
+      />
     </>
   )
 }
 
 
-export default function MapView({ center, zoom, staff, incidents, cameras, layers, onIncidentClick, onCameraClick, onCameraMove, onMapInteraction, directionsRequest, onDirectionsChange }: MapViewProps) {
+export default function MapView({ center, zoom, staff, setStaff, incidents, cameras, layers, onIncidentClick, onCameraClick, onCameraMove, onMapInteraction, patrolRoute, incidentDirections, onIncidentDirectionsChange, isIncidentRouteActive }: MapViewProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   if (!apiKey) {
@@ -279,15 +448,18 @@ export default function MapView({ center, zoom, staff, incidents, cameras, layer
           >
               <MapContent
                 staff={staff}
+                setStaff={setStaff}
                 incidents={incidents}
                 cameras={cameras}
                 layers={layers}
+                patrolRoute={patrolRoute}
                 onIncidentClick={onIncidentClick}
                 onCameraClick={onCameraClick}
                 onCameraMove={onCameraMove}
                 onMapInteraction={onMapInteraction}
-                directionsRequest={directionsRequest}
-                onDirectionsChange={onDirectionsChange}
+                incidentDirections={incidentDirections}
+                onIncidentDirectionsChange={onIncidentDirectionsChange}
+                isIncidentRouteActive={isIncidentRouteActive}
               />
           </Map>
       </div>

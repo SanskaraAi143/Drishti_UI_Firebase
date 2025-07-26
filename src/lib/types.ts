@@ -20,6 +20,7 @@ export type Staff = {
   location: Location;
   avatar: string;
   status: 'Patrolling' | 'Responding' | 'On-Break' | 'Monitoring';
+  route: google.maps.DirectionsResult | null;
 };
 
 export type Incident = Alert;
