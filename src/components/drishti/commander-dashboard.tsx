@@ -126,6 +126,19 @@ function Dashboard() {
     setActiveTab('cameras');
   }, []);
 
+  const handleCameraMove = useCallback((cameraId: string, newLocation: Location) => {
+    setCameras(prevCameras => 
+        prevCameras.map(c => 
+            c.id === cameraId ? { ...c, location: newLocation } : c
+        )
+    );
+    toast({
+        title: "Camera Repositioned",
+        description: `Camera ${cameraId} has been moved.`,
+    })
+  }, [toast]);
+
+
   const renderActiveView = () => {
     switch (activeTab) {
       case 'cameras':
@@ -145,6 +158,7 @@ function Dashboard() {
             layers={mapLayers}
             onIncidentClick={handleAlertClick}
             onCameraClick={handleCameraClick}
+            onCameraMove={handleCameraMove}
             onMapInteraction={handleMapInteraction}
             directionsRequest={selectedIncident?.severity === 'High' && commander ? {
               origin: commander.location,
