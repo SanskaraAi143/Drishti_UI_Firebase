@@ -106,13 +106,13 @@ export default function MapView({ center, zoom, staff, incidents, layers, onInci
       <div className="w-full h-full bg-muted flex flex-col items-center justify-center p-4 text-center">
         <p className="text-destructive font-semibold text-lg">Google Maps API Key is Missing</p>
         <p className="text-sm text-muted-foreground mt-2 max-w-md">
-            To display the map, you need to provide a `.env.local` file in the root of your project and add the following line:
+            To display the map, you need to create a `.env.local` file in the root of your project and add your API key:
         </p>
         <pre className="mt-4 bg-card p-2 rounded-md text-sm">
             NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=YOUR_API_KEY_HERE
         </pre>
-        <p className="text-xs text-muted-foreground mt-4">
-          Ensure the Maps JavaScript API and Visualization Library are enabled for your key in the Google Cloud Console.
+        <p className="text-xs text-muted-foreground mt-4 max-w-md">
+          Ensure the Maps JavaScript API and Visualization Library are enabled and that billing is active for your key in the Google Cloud Console.
         </p>
       </div>
     );
