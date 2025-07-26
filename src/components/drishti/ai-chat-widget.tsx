@@ -50,7 +50,6 @@ export default function AiChatWidget({ incidents }: { incidents: any[] }) {
   });
 
   useEffect(() => {
-    // Auto-scroll to bottom
     if (scrollAreaRef.current) {
       const viewport = scrollAreaRef.current.querySelector('div[data-radix-scroll-area-viewport]');
       if (viewport) {
@@ -62,10 +61,12 @@ export default function AiChatWidget({ incidents }: { incidents: any[] }) {
   const handleAiAction = async (prompt: string, action: AiAction) => {
     setIsSubmitting(true);
     const userMessage: Message = { id: Date.now(), role: 'user', text: prompt };
-    const loadingMessage: Message = { id: Date.now() + 1, role: 'assistant', text: '', isLoading: true };
-
-    setMessages(prev => [...prev, userMessage, loadingMessage]);
+    setMessages(prev => [...prev, userMessage]);
     form.reset();
+
+    // Add loading message immediately after user message
+    const loadingMessage: Message = { id: Date.now() + 1, role: 'assistant', text: '', isLoading: true };
+    setMessages(prev => [...prev, loadingMessage]);
 
     try {
       let result;

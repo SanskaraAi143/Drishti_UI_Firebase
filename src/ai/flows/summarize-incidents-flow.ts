@@ -62,7 +62,6 @@ const summarizeIncidentsFlow = ai.defineFlow(
 export async function summarizeIncidents(
   incidents: Incident[]
 ): Promise<SummarizeIncidentsOutput> {
-    // The flow input expects string dates, but the Incident type has Date objects.
     const flowInput = {
         incidents: incidents.map(i => ({...i, timestamp: i.timestamp.toISOString()}))
     }
