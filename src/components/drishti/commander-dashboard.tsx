@@ -110,6 +110,12 @@ function Dashboard() {
     setMapLayers(prev => ({ ...prev, [layer]: !prev[layer] }));
   };
 
+  const handleMapInteraction = useCallback((center: Location, zoom: number) => {
+    setMapCenter(center);
+    setMapZoom(zoom);
+  }, []);
+
+
   const renderActiveView = () => {
     switch (activeTab) {
       case 'cameras':
@@ -126,6 +132,7 @@ function Dashboard() {
             incidents={incidents}
             layers={mapLayers}
             onIncidentClick={handleAlertClick}
+            onMapInteraction={handleMapInteraction}
           />
         );
     }

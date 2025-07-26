@@ -19,6 +19,7 @@ interface MapViewProps {
   incidents: Incident[];
   layers: MapLayers;
   onIncidentClick: (incident: Incident) => void;
+  onMapInteraction: (center: Location, zoom: number) => void;
 }
 
 const StaffMarker = ({ staffMember }: { staffMember: Staff }) => {
@@ -87,7 +88,30 @@ const MapLayersComponent = ({ layers, incidents }: Pick<MapViewProps, 'layers' |
     return null;
 }
 
-const MapContent = ({ staff, incidents, layers, onIncidentClick }: Omit<MapViewProps, 'center' | 'zoom'>) => {
+const MapContent = ({ staff, incidents, layers, onIncidentClick, onMapInteraction }: Omit<MapViewProps, 'center' | 'zoom'>) => {
+  const map = useMap();
+
+  React.useEffect(() => {
+    if (!map || !onMapInteraction) return;
+    
+    const onCameraChanged = () => {
+      const center = map.getCenter();
+      const zoom = map.getZoom();
+      if (center && zoom) {
+        onMapInteraction(center.toJSON(), zoom);
+      }
+    };
+    
+    const listeners = [
+        map.addListener('zoom_changed', onCameraChanged),
+        map.addListener('center_changed', onCameraChanged),
+    ];
+    
+    return () => {
+      listeners.forEach(listener => listener.remove());
+    };
+  }, [map, onMapInteraction]);
+
   return (
     <>
       {layers.staff && staff.map(s => <StaffMarker key={`staff-${s.id}`} staffMember={s} />)}
@@ -98,7 +122,7 @@ const MapContent = ({ staff, incidents, layers, onIncidentClick }: Omit<MapViewP
 }
 
 
-export default function MapView({ center, zoom, staff, incidents, layers, onIncidentClick }: MapViewProps) {
+export default function MapView({ center, zoom, staff, incidents, layers, onIncidentClick, onMapInteraction }: MapViewProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   if (!apiKey) {
@@ -139,6 +163,7 @@ export default function MapView({ center, zoom, staff, incidents, layers, onInci
                 incidents={incidents}
                 layers={layers}
                 onIncidentClick={onIncidentClick}
+                onMapInteraction={onMapInteraction}
               />
           </Map>
       </div>
