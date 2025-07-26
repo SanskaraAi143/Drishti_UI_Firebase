@@ -1,6 +1,6 @@
 
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -54,7 +54,7 @@ const GeofenceMap = ({ onGeofenceChange }: { onGeofenceChange: (path: any) => vo
     const drawingLibrary = useMapsLibrary('drawing');
     const [drawingManager, setDrawingManager] = useState<google.maps.drawing.DrawingManager | null>(null);
 
-    useState(() => {
+    useEffect(() => {
         if (!map || !drawingLibrary) return;
 
         const manager = new drawingLibrary.DrawingManager({
@@ -191,7 +191,7 @@ export function IntelligenceIntakeForm() {
               <AccordionContent className="space-y-4 pt-4">
                 <div className="space-y-2">
                     <Label htmlFor="venueAddress">Venue Address</Label>
-                    <Input id="venueAddress" {...register('venueAddress')} placeholder="123 Main St, Anytown, USA" />
+                    <Input id="venueAddress" {...register('venueAddress')} placeholder="e.g., M.G. Road, Bengaluru" />
                     {errors.venueAddress && <p className="text-sm text-destructive">{errors.venueAddress.message}</p>}
                 </div>
                  <div className="space-y-2">
