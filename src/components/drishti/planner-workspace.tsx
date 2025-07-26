@@ -112,6 +112,13 @@ const AiSuggestionHighlight = ({ center, radius, onClose }: { center: google.map
     return <InfoWindow position={center} onCloseClick={onClose}><p>Consider placing assets in this area.</p></InfoWindow>
 }
 
+function getStaticMapUrl(geofence: {lat: number, lng: number}[], apiKey: string) {
+    if (!geofence || geofence.length === 0 || !apiKey) return '';
+    const path = geofence.map(p => `${p.lat},${p.lng}`).join('|');
+    const url = `https://maps.googleapis.com/maps/api/staticmap?size=640x480&path=color:0x4299E1ff|weight:2|fillcolor:0x4299E133|${path}&key=${apiKey}`;
+    return url;
+}
+
 
 export function PlannerWorkspace({ planId }: { planId: string }) {
     const [planData, setPlanData] = useState<any>(null);
@@ -147,8 +154,10 @@ export function PlannerWorkspace({ planId }: { planId: string }) {
             return;
         }
 
-        if (data) {
+        if (data && apiKey) {
             setIsAiLoading(true);
+            const mapImageUrl = getStaticMapUrl(data.geofence, apiKey);
+            
             generateSafetyPlan({
                 eventName: data.eventName,
                 eventType: data.eventType,
@@ -156,6 +165,7 @@ export function PlannerWorkspace({ planId }: { planId: string }) {
                 vipPresence: data.vipPresence,
                 eventSentiment: data.eventSentiment,
                 securityConcerns: data.securityConcerns,
+                mapImageUrl: mapImageUrl
             }).then(response => {
                 setAiRecommendations(response.recommendations);
             }).catch(err => {
@@ -166,9 +176,12 @@ export function PlannerWorkspace({ planId }: { planId: string }) {
             });
         } else {
              setIsAiLoading(false);
+             if (!apiKey) {
+                toast({ variant: 'destructive', title: 'Google Maps API Key is missing.'});
+             }
         }
 
-    }, [planId, toast]);
+    }, [planId, toast, apiKey]);
 
     const saveAssets = (newAssets: any[]) => {
         setPlacedAssets(newAssets);
@@ -191,6 +204,8 @@ export function PlannerWorkspace({ planId }: { planId: string }) {
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
 
+        // This is a deprecated method but easier to use without the full map instance.
+        // For a more robust solution, we'd use a different approach with the map instance.
         const projection = map.getProjection();
         const ne = projection?.fromContainerPixelToLatLng(new google.maps.Point(x, y));
         
