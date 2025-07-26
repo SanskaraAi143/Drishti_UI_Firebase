@@ -30,12 +30,7 @@ const generateRandomPoint = (center: Location, radius: number) => {
   return { lat: y + y0, lng: x + x0 };
 };
 
-const MOCK_ALERTS: Alert[] = [
-  { id: 'a1', type: 'Altercation', description: 'Fight reported near main stage.', timestamp: new Date(), location: generateRandomPoint(MOCK_CENTER, 500), severity: 'High', source: 'Crowd Report' },
-  { id: 'a2', type: 'Medical', description: 'Person fainted at entrance A.', timestamp: new Date(Date.now() - 2 * 60000), location: generateRandomPoint(MOCK_CENTER, 500), severity: 'Medium', source: 'AI Anomaly Detection' },
-  { id: 'a3', type: 'UnattendedObject', description: 'Suspicious bag found near food court.', timestamp: new Date(Date.now() - 5 * 60000), location: generateRandomPoint(MOCK_CENTER, 500), severity: 'Medium', source: 'Staff Report' },
-  { id: 'a4', type: 'CrowdSurge', description: 'Crowd density increasing rapidly at west gate.', timestamp: new Date(Date.now() - 10 * 60000), location: generateRandomPoint(MOCK_CENTER, 500), severity: 'Low', source: 'AI Anomaly Detection' },
-];
+const MOCK_ALERTS: Alert[] = [];
 
 const MOCK_STAFF: Staff[] = [
   { id: 's1', name: 'Commander', role: 'Commander', location: generateRandomPoint(MOCK_CENTER, 500), avatar: `https://placehold.co/40x40.png`, status: 'Monitoring' },
@@ -58,25 +53,6 @@ function Dashboard() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const alertInterval = setInterval(() => {
-      const newAlert: Alert = {
-        id: `a${Date.now()}`,
-        type: (['Altercation', 'Medical', 'CrowdSurge', 'UnattendedObject'] as const)[Math.floor(Math.random() * 4)],
-        description: 'New automated alert generated.',
-        timestamp: new Date(),
-        location: generateRandomPoint(MOCK_CENTER, 500),
-        severity: 'High',
-        source: 'AI Anomaly Detection'
-      };
-      setAlerts(prev => [newAlert, ...prev]);
-      setIncidents(prev => [newAlert, ...prev]);
-      toast({
-        title: `🚨 New ${newAlert.severity} Severity Alert`,
-        description: newAlert.description,
-        variant: 'destructive',
-      });
-    }, 30000); // New alert every 30 seconds
-
     const staffInterval = setInterval(() => {
         setStaff(prevStaff => prevStaff.map(s => ({
             ...s,
@@ -85,10 +61,9 @@ function Dashboard() {
     }, 5000); // Update staff location every 5 seconds
 
     return () => {
-      clearInterval(alertInterval);
       clearInterval(staffInterval);
     };
-  }, [toast]);
+  }, []);
 
   const handleAlertClick = useCallback((alert: Alert) => {
     setSelectedIncident(alert);
