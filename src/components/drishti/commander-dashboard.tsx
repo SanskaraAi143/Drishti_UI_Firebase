@@ -92,18 +92,21 @@ function Dashboard() {
   useEffect(() => {
     let patrolIndex = 0;
     const staffInterval = setInterval(() => {
-        patrolIndex = (patrolIndex + 1) % COMMANDER_PATROL_ROUTE.length;
-        const newLocation = COMMANDER_PATROL_ROUTE[patrolIndex];
-        setStaff(prevStaff => prevStaff.map(s => ({
-            ...s,
-            location: newLocation
-        })));
+        setStaff(prevStaff => {
+            // Only move the commander if they are not being routed to an incident
+            if (!directions) {
+                patrolIndex = (patrolIndex + 1) % COMMANDER_PATROL_ROUTE.length;
+                const newLocation = COMMANDER_PATROL_ROUTE[patrolIndex];
+                return prevStaff.map(s => s.role === 'Commander' ? { ...s, location: newLocation } : s);
+            }
+            return prevStaff;
+        });
     }, 5000); // Update staff location every 5 seconds
 
     return () => {
       clearInterval(staffInterval);
     };
-  }, []);
+  }, [directions]);
 
   const handleAlertClick = useCallback((alert: Incident) => {
     setSelectedIncident(alert);
