@@ -16,8 +16,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Camera, Construction, Tent, Ambulance, TowerControl, Pin, Lightbulb } from 'lucide-react';
+import { Camera, Construction, Tent, Ambulance, TowerControl, Pin, Lightbulb, Loader } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { generateSafetyPlan, type GenerateSafetyPlanOutput } from '@/ai/flows/generate-safety-plan-flow';
 
 const MOCK_CENTER = { lat: 12.9716, lng: 77.5946 };
 
@@ -89,32 +90,55 @@ export function PlannerWorkspace({ planId }: { planId: string }) {
     const [placedAssets, setPlacedAssets] = useState<any[]>([]);
     const [selectedAsset, setSelectedAsset] = useState<any | null>(null);
     const [mapCenter, setMapCenter] = useState(MOCK_CENTER);
-    const [mapZoom, setMapZoom] = useState(15);
+    const [aiRecommendations, setAiRecommendations] = useState<GenerateSafetyPlanOutput['recommendations']>([]);
+    const [isAiLoading, setIsAiLoading] = useState(true);
     const mapRef = React.useRef<google.maps.Map>(null);
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     const { toast } = useToast();
 
     useEffect(() => {
+        let data: any = null;
         try {
-            const data = localStorage.getItem(`drishti-plan-${planId}`);
-            const assets = localStorage.getItem(`drishti-plan-assets-${planId}`);
-            if (data) {
-                const parsedData = JSON.parse(data);
-                setPlanData(parsedData);
-                if (parsedData.geofence && parsedData.geofence.length > 0) {
+            const dataStr = localStorage.getItem(`drishti-plan-${planId}`);
+            const assetsStr = localStorage.getItem(`drishti-plan-assets-${planId}`);
+            if (dataStr) {
+                data = JSON.parse(dataStr);
+                setPlanData(data);
+                if (data.geofence && data.geofence.length > 0) {
                     const bounds = new window.google.maps.LatLngBounds();
-                    parsedData.geofence.forEach((p: any) => bounds.extend(p));
-                    // The map instance isn't available immediately. This is a common issue.
-                    // We'll set the center from the geofence data.
+                    data.geofence.forEach((p: any) => bounds.extend(p));
                     setMapCenter(bounds.getCenter().toJSON());
                 }
             }
-            if(assets) {
-                setPlacedAssets(JSON.parse(assets));
+            if(assetsStr) {
+                setPlacedAssets(JSON.parse(assetsStr));
             }
         } catch (e) {
             toast({ variant: 'destructive', title: "Could not load plan data." });
+            return;
         }
+
+        if (data) {
+            setIsAiLoading(true);
+            generateSafetyPlan({
+                eventName: data.eventName,
+                eventType: data.eventType,
+                peakAttendance: data.peakAttendance,
+                vipPresence: data.vipPresence,
+                eventSentiment: data.eventSentiment,
+                securityConcerns: data.securityConcerns,
+            }).then(response => {
+                setAiRecommendations(response.recommendations);
+            }).catch(err => {
+                console.error("AI recommendation error:", err);
+                toast({ variant: 'destructive', title: 'Could not get AI recommendations.'});
+            }).finally(() => {
+                setIsAiLoading(false);
+            });
+        } else {
+             setIsAiLoading(false);
+        }
+
     }, [planId, toast]);
 
     const saveAssets = (newAssets: any[]) => {
@@ -133,16 +157,23 @@ export function PlannerWorkspace({ planId }: { planId: string }) {
         const map = mapRef.current;
         if (!assetId || !map) return;
         
-        const point = { x: e.clientX, y: e.clientY };
-        const latLng = map.getProjection()?.fromPointToLatLng(point);
+        // This logic to get lat/lng from clientX/Y is not fully accurate without
+        // considering the map container's position. This is a simplification.
+        const mapContainer = map.getDiv();
+        const rect = mapContainer.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        const projection = map.getProjection();
+        const ne = projection?.fromContainerPixelToLatLng(new google.maps.Point(x, y));
         
-        if (latLng) {
+        if (ne) {
             const newAsset = {
                 id: `asset-${Date.now()}`,
                 type: assetId,
                 label: `${assetLibrary.find(a=>a.id === assetId)?.name} ${placedAssets.length + 1}`,
                 notes: '',
-                location: latLng.toJSON(),
+                location: ne.toJSON(),
             };
             saveAssets([...placedAssets, newAsset]);
             toast({ title: "Asset Placed", description: `${newAsset.label} added to the map.`});
@@ -172,7 +203,7 @@ export function PlannerWorkspace({ planId }: { planId: string }) {
     if (!planData) return <div>Loading plan...</div>;
 
     return (
-        <div className="flex-1 flex" onDrop={handleDrop} onDragOver={handleDragOver}>
+        <div className="flex-1 flex h-full" onDrop={handleDrop} onDragOver={handleDragOver}>
             <div className="flex-1 h-full relative">
                 <APIProvider apiKey={apiKey}>
                     <Map
@@ -198,8 +229,8 @@ export function PlannerWorkspace({ planId }: { planId: string }) {
                     </Map>
                 </APIProvider>
             </div>
-            <aside className="w-[380px] bg-card border-l border-border flex flex-col">
-                <Tabs defaultValue="library" className="flex-1 flex flex-col">
+            <aside className="w-[380px] bg-card border-l border-border flex flex-col h-full">
+                <Tabs defaultValue="library" className="flex-1 flex flex-col h-full overflow-hidden">
                     <TabsList className="grid w-full grid-cols-2">
                         <TabsTrigger value="library">Asset Library</TabsTrigger>
                         <TabsTrigger value="ai">Drishti AI</TabsTrigger>
@@ -215,21 +246,22 @@ export function PlannerWorkspace({ planId }: { planId: string }) {
                                 <CardTitle className="text-base flex items-center"><Lightbulb className="w-5 h-5 mr-2 text-yellow-400" /> AI Recommendations</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                {planData.vipPresence && (
-                                    <div className="p-3 rounded-md border bg-card">
-                                        <p className="font-semibold text-sm">VIP Ingress/Egress Coverage</p>
-                                        <p className="text-xs text-muted-foreground">Ensure 360° camera coverage on the stage and all VIP routes.</p>
-                                        <Button size="sm" variant="link" className="p-0 h-auto mt-1">Highlight Zones</Button>
+                                {isAiLoading ? (
+                                    <div className="flex items-center justify-center p-8">
+                                        <Loader className="w-6 h-6 animate-spin" />
+                                        <p className="ml-3 text-sm text-muted-foreground">Analyzing your plan...</p>
                                     </div>
+                                ) : aiRecommendations.length > 0 ? (
+                                    aiRecommendations.map((rec, index) => (
+                                         <div key={index} className="p-3 rounded-md border bg-card">
+                                            <p className="font-semibold text-sm">{rec.title}</p>
+                                            <p className="text-xs text-muted-foreground">{rec.description}</p>
+                                            {rec.action && <Button size="sm" variant="link" className="p-0 h-auto mt-1">{rec.action}</Button>}
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p className="text-center text-xs text-muted-foreground">No specific AI recommendations based on your intake.</p>
                                 )}
-                                {planData.securityConcerns.includes('crowdControl') && (
-                                     <div className="p-3 rounded-md border bg-card">
-                                        <p className="font-semibold text-sm">Crowd Control Measures</p>
-                                        <p className="text-xs text-muted-foreground">Use barricades for serpentine queues at entrances. Map is highlighting potential choke points.</p>
-                                        <Button size="sm" variant="link" className="p-0 h-auto mt-1">View Choke Points</Button>
-                                    </div>
-                                )}
-                                <p className="text-center text-xs text-muted-foreground">AI analysis based on your intelligence intake.</p>
                             </CardContent>
                         </Card>
                     </TabsContent>
