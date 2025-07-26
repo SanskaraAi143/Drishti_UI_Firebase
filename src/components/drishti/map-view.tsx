@@ -8,6 +8,7 @@ import { IncidentIcon } from '../icons/incident-icons';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { AlertTriangle, Video } from 'lucide-react';
+import { isGoogleMapsConfigured, getGoogleMapsApiKey } from '@/lib/config';
 
 const severityColors = {
   High: '#ef4444',
@@ -237,12 +238,12 @@ function usePatrol(
                 onNewPatrolLeg(response);
                 patrolIndexRef.current = nextIndex;
 
-                const durationInSeconds = response.routes[0].legs[0].duration?.value || 30;
+                const durationInSeconds = response.routes[0]?.legs[0]?.duration?.value || 30;
                 patrolTimeout = setTimeout(startPatrol, (durationInSeconds + 5) * 1000); // Wait for route duration + 5s buffer
-            }).catch(e => {
-                console.error("Patrol route request failed", e);
+            }).catch(error => {
+                console.error("Patrol route request failed", error);
                 onNewPatrolLeg(null);
-                 patrolTimeout = setTimeout(startPatrol, 10000); // Retry after 10s
+                patrolTimeout = setTimeout(startPatrol, 10000); // Retry after 10s
             });
         };
 
@@ -417,20 +418,59 @@ const MapContent = ({ staff, setStaff, incidents, cameras, layers, onIncidentCli
 
 
 export default function MapView({ center, zoom, staff, setStaff, incidents, cameras, layers, onIncidentClick, onCameraClick, onCameraMove, onMapInteraction, patrolRoute, incidentDirections, onIncidentDirectionsChange, isIncidentRouteActive }: MapViewProps) {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const [isMounted, setIsMounted] = useState(false);
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
 
-  if (!apiKey) {
+  useEffect(() => {
+    setIsMounted(true);
+    
+    // Check API key configuration on client side only to avoid hydration mismatch
+    try {
+      getGoogleMapsApiKey();
+    } catch (error) {
+      setApiKeyError(error instanceof Error ? error.message : 'Unknown error');
+    }
+  }, []);
+
+  // Prevent hydration mismatch by showing loading on server-side render
+  if (!isMounted) {
+    return (
+      <div className="w-full h-full bg-muted flex items-center justify-center">
+        <p>Loading Map...</p>
+      </div>
+    );
+  }
+
+  // Show API key error if detected on client side
+  if (apiKeyError) {
     return (
       <div className="w-full h-full bg-muted flex flex-col items-center justify-center p-4 text-center">
         <Alert variant="destructive" className="max-w-md">
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>Google Maps API Key is Missing</AlertTitle>
             <AlertDescription>
-                <p>To display the map, you need to add your Google Maps API key to the `.env` file:</p>
+                <p>To display the map, you need to add your Google Maps API key to the `.env.local` file:</p>
                 <pre className="mt-2 bg-card p-2 rounded-md text-xs text-left">
                     NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=YOUR_API_KEY
                 </pre>
                  <p className="mt-2">If the error persists, ensure the API key is valid and has billing enabled in your Google Cloud Console.</p>
+            </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  let apiKey: string;
+  try {
+    apiKey = getGoogleMapsApiKey();
+  } catch (error) {
+    return (
+      <div className="w-full h-full bg-muted flex flex-col items-center justify-center p-4 text-center">
+        <Alert variant="destructive" className="max-w-md">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Configuration Error</AlertTitle>
+            <AlertDescription>
+                <p>Failed to load Google Maps configuration: {error instanceof Error ? error.message : 'Unknown error'}</p>
             </AlertDescription>
         </Alert>
       </div>

@@ -49,7 +49,7 @@ export default function StaffView({ staff, onStaffClick }: StaffViewProps) {
                     <span className="ml-1.5">{s.status}</span>
                 </div>
               </div>
-              <Button size="sm" variant="outline" onClick={() => onStaffClick(s)}>
+              <Button size="sm" variant="outline" onClick={() => onStaffClick(s)} aria-label={`Locate ${s.name} on map`}>
                 <MapPin className="mr-2 h-4 w-4" />
                 Locate
               </Button>

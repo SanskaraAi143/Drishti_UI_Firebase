@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Alert, Staff, Incident, MapLayers, Location, Route, Camera } from '@/lib/types';
 import Sidebar from '@/components/drishti/sidebar';
-import MapView from '@/components/drishti/map-view';
+import ClientOnlyMap from '@/components/drishti/client-only-map';
 import IncidentModal from '@/components/drishti/incident-modal';
 import CameraView from '@/components/drishti/camera-view';
 import LostAndFound from '@/components/drishti/lost-and-found';
@@ -61,17 +61,13 @@ const generateRandomIncident = (cameras: Camera[]): Incident => {
 };
 
 function Dashboard() {
-  const [activeTab, setActiveTab] = useState('map');
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [staff, setStaff] = useState<Staff[]>(MOCK_STAFF);
-  const [cameras, setCameras] = useState<Camera[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [incidentRoute, setIncidentRoute] = useState<{ directions: google.maps.DirectionsResult | null; routeInfo: Route | null }>({ directions: null, routeInfo: null });
+  const [staff, setStaff] = useState<Staff[]>(MOCK_STAFF);
+  const [cameras, setCameras] = useState<Camera[]>(MOCK_CAMERAS);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
-  const [incidentRoute, setIncidentRoute] = useState<{
-    directions: google.maps.DirectionsResult | null;
-    routeInfo: Route | null;
-  }>({ directions: null, routeInfo: null });
-  
+  const [activeTab, setActiveTab] = useState('map');
   const [mapLayers, setMapLayers] = useState<MapLayers>({
     heatmap: true,
     staff: true,
@@ -81,10 +77,59 @@ function Dashboard() {
   });
   const [mapCenter, setMapCenter] = useState<Location>(MOCK_CENTER);
   const [mapZoom, setMapZoom] = useState(15);
+  const [isMounted, setIsMounted] = useState(false);
   const { toast } = useToast();
   const [isCommanderAtJunctionA, setIsCommanderAtJunctionA] = useState(false);
   const routesLibrary = useMapsLibrary('routes');
   const directionsServiceRef = useRef<google.maps.DirectionsService>();
+
+  // Define callback functions first, before useEffect hooks
+  const handleAlertClick = useCallback((alert: Incident) => {
+    setSelectedIncident(alert);
+    setMapCenter(alert.location);
+    setMapZoom(18);
+    setActiveTab('map');
+  }, []);
+
+  const handleStaffClick = useCallback((staffMember: Staff) => {
+    setMapCenter(staffMember.location);
+    setMapZoom(18);
+    setActiveTab('map');
+  }, []);
+
+  const handleToggleLayer = useCallback((layer: keyof MapLayers) => {
+    setMapLayers(prev => ({ ...prev, [layer]: !prev[layer] }));
+  }, []);
+
+  const handleMapInteraction = useCallback((center: Location, zoom: number) => {
+    setMapCenter(center);
+    setMapZoom(zoom);
+  }, []);
+
+  const handleDirectionsChange = useCallback((
+    result: google.maps.DirectionsResult | null,
+    route: Route | null
+  ) => {
+    setIncidentRoute({ directions: result, routeInfo: route });
+  }, []);
+
+  const handleCameraClick = useCallback((camera: Camera) => {
+    setMapCenter(camera.location);
+    setMapZoom(18);
+    setActiveTab('cameras');
+  }, []);
+
+  const handleCameraMove = useCallback((cameraId: string, newLocation: Location) => {
+    // In commander view, moving cameras is temporary for the session
+    const updatedCameras = cameras.map(c => 
+        c.id === cameraId ? { ...c, location: newLocation } : c
+    );
+    setCameras(updatedCameras);
+    toast({
+        title: "Camera Repositioned (Session)",
+        description: `Camera ${cameras.find(c=>c.id === cameraId)?.name} position updated for this session only.`,
+    })
+  }, [cameras, toast]);
 
   useEffect(() => {
     if (routesLibrary) {
@@ -93,6 +138,12 @@ function Dashboard() {
   }, [routesLibrary]);
 
   useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isMounted) return;
+    
     // Load camera positions from localStorage (set by planning page)
     const savedCameras = localStorage.getItem(CAMERA_STORAGE_KEY);
     if (savedCameras) {
@@ -106,15 +157,17 @@ function Dashboard() {
             });
             setCameras(cameraData);
         } else {
+            console.warn('Invalid camera data structure, using fallback');
             setCameras(MOCK_CAMERAS);
         }
       } catch (error) {
+        console.error('Failed to parse saved cameras:', error);
         setCameras(MOCK_CAMERAS);
       }
     } else {
         setCameras(MOCK_CAMERAS);
     }
-  }, []);
+  }, [isMounted]);
 
   // Simulate real-time alerts
   useEffect(() => {
@@ -143,6 +196,8 @@ function Dashboard() {
                     if (status === 'OK' && result) {
                         handleDirectionsChange(result, null);
                         setSelectedIncident(newIncident);
+                    } else {
+                        console.error('Failed to calculate route:', status);
                     }
                 });
             }
@@ -151,56 +206,7 @@ function Dashboard() {
       }, 15000); // New alert every 15 seconds
 
       return () => clearInterval(interval);
-  }, [cameras, toast, staff]);
-
-  const handleAlertClick = useCallback((alert: Incident) => {
-    setSelectedIncident(alert);
-    setMapCenter(alert.location);
-    setMapZoom(18);
-    setActiveTab('map');
-  }, []);
-
-
-  const handleStaffClick = useCallback((staffMember: Staff) => {
-    setMapCenter(staffMember.location);
-    setMapZoom(18);
-    setActiveTab('map');
-  }, []);
-
-  const handleToggleLayer = useCallback((layer: keyof MapLayers) => {
-    setMapLayers(prev => ({ ...prev, [layer]: !prev[layer] }));
-  }, []);
-
-  const handleMapInteraction = useCallback((center: Location, zoom: number) => {
-    setMapCenter(center);
-    setMapZoom(zoom);
-  }, []);
-
-  const handleDirectionsChange = useCallback((
-    result: google.maps.DirectionsResult | null,
-    route: Route | null
-  ) => {
-    setIncidentRoute({ directions: result, routeInfo: route });
-  }, []);
-  
-  const handleCameraClick = useCallback((camera: Camera) => {
-    setMapCenter(camera.location);
-    setMapZoom(18);
-    setActiveTab('cameras');
-  }, []);
-
-  const handleCameraMove = useCallback((cameraId: string, newLocation: Location) => {
-    // In commander view, moving cameras is temporary for the session
-    const updatedCameras = cameras.map(c => 
-        c.id === cameraId ? { ...c, location: newLocation } : c
-    );
-    setCameras(updatedCameras);
-    toast({
-        title: "Camera Repositioned (Session)",
-        description: `Camera ${cameras.find(c=>c.id === cameraId)?.name} position updated for this session only.`,
-    })
-  }, [cameras, toast]);
-
+  }, [cameras, toast, staff, handleDirectionsChange]);
 
   const renderActiveView = () => {
     switch (activeTab) {
@@ -211,7 +217,7 @@ function Dashboard() {
       case 'map':
       default:
         return (
-          <MapView
+          <ClientOnlyMap
             center={mapCenter}
             zoom={mapZoom}
             staff={staff}
