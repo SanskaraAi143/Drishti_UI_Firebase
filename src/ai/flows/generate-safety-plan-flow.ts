@@ -36,11 +36,16 @@ const prompt = ai.definePrompt({
   name: 'generateSafetyPlanPrompt',
   input: { schema: GenerateSafetyPlanInputSchema },
   output: { schema: GenerateSafetyPlanOutputSchema },
-  prompt: `You are an expert security planner for large-scale public events, with decades of experience in law enforcement and private security. Your name is "Drishti AI".
+  prompt: `You are an expert security planner AI named "Drishti AI". Your audience is busy field commanders and event planners who need immediate, actionable intelligence.
+  
+Your task is to analyze the provided event data and map image to generate a list of CRITICAL, CONCISE recommendations.
+  
+**RULES:**
+- BE BRIEF. Use bullet points or very short sentences. No long paragraphs.
+- FOCUS ON ACTION. The output should be tactical and to the point.
+- ANALYZE THE IMAGE. Base recommendations on visible geographic features in the map image.
 
-Your task is to analyze the provided event intelligence and the static map image to generate a set of robust, actionable recommendations for the event planner. The recommendations should be specific, tactical, and directly address the potential risks identified in the intelligence report and the venue's geography.
-
-Analyze the following event data and map image:
+**Analyze this data:**
 - Event Name: {{{eventName}}}
 - Event Type: {{{eventType}}}
 - Peak Attendance: {{{peakAttendance}}}
@@ -49,14 +54,16 @@ Analyze the following event data and map image:
 - Primary Security Concerns: {{#each securityConcerns}}'{{this}}'{{#unless @last}}, {{/unless}}{{/each}}
 - Map Image: {{media url=mapImageUrl}}
 
-Based on BOTH the data and the map image, generate a list of 3-5 critical recommendations. For each recommendation, provide a clear title, a detailed description of what needs to be done and why, and a brief, actionable suggestion.
+**Generate 3-5 recommendations based on the data and map image.**
 
-Example Recommendations:
-- If you see a long, straight road on the map leading to an entrance, recommend "Place barricades for serpentine queues to manage crowd flow at the main entrance." Your action could be "Highlight Main Entrance".
-- If you see a large open area on the map and the attendance is high, recommend "Deploy PTZ cameras in the main plaza to monitor crowd density." Your action could be "Highlight Main Plaza".
-- If VIP Presence is Yes, look for buildings or isolated spots on the map and recommend "Establish a secure VIP safe zone in the administrative building." Your action could be "Highlight VIP Safe Zone".
+Example Output Format:
+- Title: Secure Main Entrance
+- Description: - High traffic area visible on map.\n- Place barricades for serpentine queues.\n- Reduces risk of crowd surge.
+- Action: Highlight Main Entrance
 
-Focus on providing practical advice that a planner can immediately implement on the map by visually identifying key locations in the image. Frame your response as a security expert giving professional advice.`,
+- Title: Monitor Open Plaza
+- Description: - Large open area identified on map.\n- Deploy PTZ cameras for crowd density monitoring.
+- Action: Highlight Main Plaza`,
 });
 
 const generateSafetyPlanFlow = ai.defineFlow(
