@@ -14,25 +14,6 @@ import AiChatWidget from './ai-chat-widget';
 
 const MOCK_CENTER: Location = { lat: 12.9716, lng: 77.5946 }; // Bengaluru
 
-const generateRandomPoint = (center: Location, radius: number) => {
-  const y0 = center.lat;
-  const x0 = center.lng;
-  const rd = radius / 111300; // about 111300 meters in one degree
-
-  const u = Math.random();
-  const v = Math.random();
-
-  const w = rd * Math.sqrt(u);
-  const t = 2 * Math.PI * v;
-  const x = w * Math.cos(t);
-  const y = w * Math.sin(t);
-
-  return { lat: y + y0, lng: x + x0 };
-};
-
-const MOCK_ALERTS: Alert[] = [];
-
-// Pre-defined valid road coordinates for the Commander
 const COMMANDER_PATROL_ROUTE: Location[] = [
     { lat: 12.9740, lng: 77.5920 }, // Near Cubbon Park
     { lat: 12.9760, lng: 77.5960 }, // Near UB City
@@ -57,10 +38,10 @@ const CAMERA_STORAGE_KEY = 'drishti-planning-camera-positions'; // Use planning 
 
 function Dashboard() {
   const [activeTab, setActiveTab] = useState('map');
-  const [alerts, setAlerts] = useState<Alert[]>(MOCK_ALERTS);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
   const [staff, setStaff] = useState<Staff[]>(MOCK_STAFF);
   const [cameras, setCameras] = useState<Camera[]>([]);
-  const [incidents, setIncidents] = useState<Incident[]>([...MOCK_ALERTS]);
+  const [incidents, setIncidents] = useState<Incident[]>([]);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [incidentRoute, setIncidentRoute] = useState<{
     directions: google.maps.DirectionsResult | null;
@@ -77,7 +58,7 @@ function Dashboard() {
   const [mapCenter, setMapCenter] = useState<Location>(MOCK_CENTER);
   const [mapZoom, setMapZoom] = useState(15);
   const { toast } = useToast();
-  const [isCommanderAtJunctionA] = useState(false);
+  const [isCommanderAtJunctionA, setIsCommanderAtJunctionA] = useState(false);
 
   useEffect(() => {
     // Load camera positions from localStorage (set by planning page)
@@ -146,7 +127,7 @@ function Dashboard() {
     setCameras(updatedCameras);
     toast({
         title: "Camera Repositioned (Session)",
-        description: `Camera ${cameraId} position updated for this session.`,
+        description: `Camera ${cameras.find(c=>c.id === cameraId)?.name} position updated for this session only.`,
     })
   }, [cameras, toast]);
 
@@ -189,7 +170,7 @@ function Dashboard() {
           onAlertClick={handleAlertClick}
           onStaffClick={handleStaffClick}
           mapLayers={mapLayers}
-          onToggleLayer={handleToggleLayer}
+          onToggleLayer={onToggleLayer}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
         />

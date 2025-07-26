@@ -128,11 +128,13 @@ const DirectionsRenderer = ({
     onDirectionsChange,
     routeId,
     color,
+    render,
 }: { 
     directions: google.maps.DirectionsResult | null; 
     onDirectionsChange?: (result: google.maps.DirectionsResult | null, route: Route | null) => void;
     routeId: string;
     color: string;
+    render?: boolean;
 }) => {
     const map = useMap();
     const routesLibrary = useMapsLibrary('routes');
@@ -162,12 +164,12 @@ const DirectionsRenderer = ({
 
     useEffect(() => {
         if (!directionsRenderer) return;
-        if (directions) {
+        if (directions && render) {
             directionsRenderer.setDirections(directions);
         } else {
             directionsRenderer.setDirections(null);
         }
-    }, [directionsRenderer, directions]);
+    }, [directionsRenderer, directions, render]);
 
     useEffect(() => {
         if (directions && onDirectionsChange) {
@@ -326,11 +328,9 @@ const CommanderPatrol = ({ staff, setStaff, patrolRoute, isIncidentRouteActive }
         handleAnimationComplete
     );
 
-    if (!commander || isIncidentRouteActive || !patrolDirections) return null;
+    if (!commander) return null;
     
-    // Do not render the DirectionsRenderer for patrol routes to keep the map clean.
-    // The marker animation will still follow the path.
-    return null;
+    return <DirectionsRenderer directions={patrolDirections} routeId="patrol" color="#3b82f6" render={false} />;
 }
 
 
@@ -391,14 +391,13 @@ const MapContent = ({ staff, setStaff, incidents, cameras, layers, onIncidentCli
       )}
       <MapLayersComponent layers={layers} incidents={incidents} />
       <MapEvents onMapInteraction={onMapInteraction} />
-      {isIncidentRouteActive && (
-        <DirectionsRenderer 
-            directions={incidentDirections} 
-            onDirectionsChange={onIncidentDirectionsChange}
-            routeId="incident"
-            color="#D32F2F"
-        />
-      )}
+      <DirectionsRenderer 
+          directions={incidentDirections} 
+          onDirectionsChange={onIncidentDirectionsChange}
+          routeId="incident"
+          color="#D32F2F"
+          render={isIncidentRouteActive}
+      />
       <CommanderPatrol 
         staff={staff}
         setStaff={setStaff}
@@ -468,5 +467,3 @@ export default function MapView({ center, zoom, staff, setStaff, incidents, came
     </APIProvider>
   );
 }
-
-    
