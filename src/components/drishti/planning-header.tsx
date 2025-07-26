@@ -17,7 +17,7 @@ export function PlanningHeader({ currentStep, planId }: PlanningHeaderProps) {
 
   const steps = [
     { number: 1, name: 'My Plans', href: '/planning' },
-    { number: 2, name: 'Intelligence Intake', href: '/planning/new' },
+    { number: 2, name: 'Intelligence Intake', href: planId ? `/planning/new?from=${planId}` : '/planning/new' },
     { number: 3, name: 'Planner Workspace', href: planId ? `/planning/${planId}/edit` : '#' },
     { number: 4, name: 'Operations Briefing', href: planId ? `/planning/${planId}/briefing` : '#' },
   ];
@@ -40,6 +40,7 @@ export function PlanningHeader({ currentStep, planId }: PlanningHeaderProps) {
                 currentStep > step.number && "text-accent",
                 currentStep < step.number && "text-muted-foreground pointer-events-none"
               )}
+              disabled={currentStep < step.number}
               asChild
             >
               <Link href={step.href}>
