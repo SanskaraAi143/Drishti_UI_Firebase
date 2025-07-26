@@ -5,6 +5,8 @@ import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow, useMap, useMapsLibra
 import type { Location, Staff, Incident, MapLayers } from '@/lib/types';
 import { IncidentIcon } from '../icons/incident-icons';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
+import { AlertTriangle } from 'lucide-react';
 
 const severityColors = {
   High: '#ef4444',
@@ -65,17 +67,16 @@ const MapLayersComponent = ({ layers, incidents }: Pick<MapViewProps, 'layers' |
         if (!map || !visualizationLibrary) return;
 
         if (!heatmap) {
-            const heatmapData = incidents.map(incident => new google.maps.LatLng(incident.location.lat, incident.location.lng));
             const newHeatmap = new visualizationLibrary.HeatmapLayer({
-                data: heatmapData,
+                data: [],
                 map: map,
                 radius: 40
             });
             setHeatmap(newHeatmap);
-        } else {
-            const heatmapData = incidents.map(incident => new google.maps.LatLng(incident.location.lat, incident.location.lng));
-            heatmap.setData(heatmapData);
         }
+        
+        const heatmapData = incidents.map(incident => new google.maps.LatLng(incident.location.lat, incident.location.lng));
+        heatmap?.setData(heatmapData);
 
     }, [map, visualizationLibrary, incidents, heatmap]);
     
@@ -88,11 +89,11 @@ const MapLayersComponent = ({ layers, incidents }: Pick<MapViewProps, 'layers' |
     return null;
 }
 
-const MapContent = ({ staff, incidents, layers, onIncidentClick, onMapInteraction }: Omit<MapViewProps, 'center' | 'zoom'>) => {
+const MapEvents = ({ onMapInteraction }: Pick<MapViewProps, 'onMapInteraction'>) => {
   const map = useMap();
 
   React.useEffect(() => {
-    if (!map || !onMapInteraction) return;
+    if (!map) return;
     
     const onCameraChanged = () => {
       const center = map.getCenter();
@@ -104,7 +105,7 @@ const MapContent = ({ staff, incidents, layers, onIncidentClick, onMapInteractio
     
     const listeners = [
         map.addListener('zoom_changed', onCameraChanged),
-        map.addListener('center_changed', onCameraChanged),
+        map.addListener('dragend', onCameraChanged),
     ];
     
     return () => {
@@ -112,11 +113,27 @@ const MapContent = ({ staff, incidents, layers, onIncidentClick, onMapInteractio
     };
   }, [map, onMapInteraction]);
 
+  return null;
+}
+
+
+const MapContent = ({ staff, incidents, layers, onIncidentClick, onMapInteraction }: Omit<MapViewProps, 'center' | 'zoom'>) => {
+  const map = useMap();
+
+  if (!map) {
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <p>Loading Map...</p>
+      </div>
+    );
+  }
+
   return (
     <>
       {layers.staff && staff.map(s => <StaffMarker key={`staff-${s.id}`} staffMember={s} />)}
       {layers.incidents && incidents.map(i => <IncidentMarker key={`incident-${i.id}`} incident={i} onClick={onIncidentClick} />)}
       <MapLayersComponent layers={layers} incidents={incidents} />
+      <MapEvents onMapInteraction={onMapInteraction} />
     </>
   )
 }
@@ -128,16 +145,17 @@ export default function MapView({ center, zoom, staff, incidents, layers, onInci
   if (!apiKey) {
     return (
       <div className="w-full h-full bg-muted flex flex-col items-center justify-center p-4 text-center">
-        <p className="text-destructive font-semibold text-lg">Google Maps API Key is Missing</p>
-        <p className="text-sm text-muted-foreground mt-2 max-w-md">
-            To display the map, you need to create a `.env.local` file in the root of your project and add your API key:
-        </p>
-        <pre className="mt-4 bg-card p-2 rounded-md text-sm">
-            NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=YOUR_API_KEY_HERE
-        </pre>
-        <p className="text-xs text-muted-foreground mt-4 max-w-md">
-          Ensure the Maps JavaScript API is enabled and that billing is active for your key in the Google Cloud Console.
-        </p>
+        <Alert variant="destructive" className="max-w-md">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Google Maps API Key is Missing</AlertTitle>
+            <AlertDescription>
+                <p>To display the map, you need to add your Google Maps API key to the `.env` file:</p>
+                <pre className="mt-2 bg-card p-2 rounded-md text-xs text-left">
+                    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=YOUR_API_KEY
+                </pre>
+                 <p className="mt-2">If the error persists, ensure the API key is valid and has billing enabled in your Google Cloud Console.</p>
+            </AlertDescription>
+        </Alert>
       </div>
     );
   }
@@ -146,7 +164,6 @@ export default function MapView({ center, zoom, staff, incidents, layers, onInci
     <APIProvider 
         apiKey={apiKey}
         onLoad={() => console.log('Maps API loaded.')}
-        solutionChannel="GMP_devsite_samples_v3_rgmautocomplete"
     >
       <div className="w-full h-full">
           <Map
@@ -157,6 +174,7 @@ export default function MapView({ center, zoom, staff, incidents, layers, onInci
             gestureHandling={'greedy'}
             disableDefaultUI={true}
             mapId={'drishti_dark_map'}
+            style={{width: '100%', height: '100%'}}
           >
               <MapContent
                 staff={staff}
