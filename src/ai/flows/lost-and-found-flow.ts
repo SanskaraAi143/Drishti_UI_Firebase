@@ -53,14 +53,18 @@ async function performFaceSearch(input: FindPersonInput): Promise<FindPersonOutp
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Endpoint request failed with status ${response.status}: ${errorText}`);
+      console.error(`Endpoint request failed with status ${response.status}: ${errorText}`);
+      // Try to parse the error for a better message, otherwise use the text
+      try {
+        const errorJson = JSON.parse(errorText);
+        throw new Error(errorJson.message || `Endpoint returned status ${response.status}`);
+      } catch (e) {
+        throw new Error(`Endpoint request failed with status ${response.status}: ${errorText}`);
+      }
     }
 
     const result = await response.json();
     
-    // Adapt the response from the endpoint to the FindPersonOutputSchema
-    // This assumes the endpoint returns a similar structure.
-    // You might need to adjust this mapping based on the actual endpoint response.
     return {
       found: result.found,
       message: result.message,
@@ -72,9 +76,10 @@ async function performFaceSearch(input: FindPersonInput): Promise<FindPersonOutp
     };
   } catch (error: any) {
     console.error('Error calling face search endpoint:', error);
+    // Provide a more user-friendly error message
     return {
       found: false,
-      message: `Failed to connect to the search service. ${error.message}`,
+      message: `Failed to connect to the search service. Please check if the service at ${endpoint} is running. Details: ${error.message}`,
     };
   }
 }
