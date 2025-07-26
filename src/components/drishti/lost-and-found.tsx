@@ -18,7 +18,7 @@ import type { FindPersonOutput } from '@/ai/flows/lost-and-found-flow';
 const LostAndFoundSchema = z.object({
   name: z.string().optional(),
   photo: z
-    .custom<FileList>()
+    .any()
     .refine((files) => files?.length > 0, 'An image is required.'),
 });
 type LostAndFoundForm = z.infer<typeof LostAndFoundSchema>;
