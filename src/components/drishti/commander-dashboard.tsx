@@ -34,11 +34,11 @@ const MOCK_ALERTS: Alert[] = [];
 
 // Pre-defined valid road coordinates for the Commander
 const COMMANDER_PATROL_ROUTE: Location[] = [
-    { lat: 12.9740, lng: 77.5920 },
-    { lat: 12.9760, lng: 77.5960 },
-    { lat: 12.9720, lng: 77.5980 },
-    { lat: 12.9700, lng: 77.5960 },
-    { lat: 12.9690, lng: 77.5920 },
+    { lat: 12.9740, lng: 77.5920 }, // Near Cubbon Park
+    { lat: 12.9760, lng: 77.5960 }, // Near UB City
+    { lat: 12.9720, lng: 77.5980 }, // Near Kanteerava Stadium
+    { lat: 12.9700, lng: 77.5960 }, // South of UB City
+    { lat: 12.9690, lng: 77.5920 }, // West of Cubbon Park
     { lat: 12.9716, lng: 77.5946 }, // return to center
 ];
 
@@ -48,17 +48,18 @@ const MOCK_STAFF: Staff[] = [
 
 const MOCK_CAMERAS: Camera[] = [
     { id: 'cam-a', name: 'Camera A (Zone A)', location: { lat: 12.9685, lng: 77.5913 }, streamUrl: 'https://placehold.co/640x480.png?text=Live+Feed+1' },
-    { id: 'cam-b', name: 'Camera B (Zone B)', location: generateRandomPoint(MOCK_CENTER, 400), streamUrl: 'https://placehold.co/640x480.png?text=Live+Feed+2' },
-    { id: 'cam-c', name: 'Camera C (Zone C)', location: generateRandomPoint(MOCK_CENTER, 400), streamUrl: 'https://placehold.co/640x480.png?text=Live+Feed+3' },
+    { id: 'cam-b', name: 'Camera B (Zone B)', location: { lat: 12.9720, lng: 77.5980 }, streamUrl: 'https://placehold.co/640x480.png?text=Live+Feed+2' },
+    { id: 'cam-c', name: 'Camera C (Zone C)', location: { lat: 12.9760, lng: 77.5960 }, streamUrl: 'https://placehold.co/640x480.png?text=Live+Feed+3' },
+    { id: 'cam-d', name: 'Camera D (Zone D)', location: { lat: 12.9700, lng: 77.5960 }, streamUrl: 'https://placehold.co/640x480.png?text=Live+Feed+4' },
 ];
 
-const CAMERA_STORAGE_KEY = 'drishti-camera-positions';
+const CAMERA_STORAGE_KEY = 'drishti-planning-camera-positions'; // Use planning positions
 
 function Dashboard() {
   const [activeTab, setActiveTab] = useState('map');
   const [alerts, setAlerts] = useState<Alert[]>(MOCK_ALERTS);
   const [staff, setStaff] = useState<Staff[]>(MOCK_STAFF);
-  const [cameras, setCameras] = useState<Camera[]>(MOCK_CAMERAS);
+  const [cameras, setCameras] = useState<Camera[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([...MOCK_ALERTS]);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [incidentRoute, setIncidentRoute] = useState<{
@@ -76,10 +77,10 @@ function Dashboard() {
   const [mapCenter, setMapCenter] = useState<Location>(MOCK_CENTER);
   const [mapZoom, setMapZoom] = useState(15);
   const { toast } = useToast();
-  const [isCommanderAtJunctionA, setIsCommanderAtJunctionA] = useState(false);
+  const [isCommanderAtJunctionA] = useState(false);
 
   useEffect(() => {
-    // Load camera positions from localStorage
+    // Load camera positions from localStorage (set by planning page)
     const savedCameras = localStorage.getItem(CAMERA_STORAGE_KEY);
     if (savedCameras) {
       try {
@@ -88,15 +89,16 @@ function Dashboard() {
         if (Array.isArray(parsedCameras) && parsedCameras.every(c => c.id && c.location)) {
             setCameras(parsedCameras);
         } else {
-            console.error("Invalid camera data in localStorage");
+            console.error("Invalid camera data in localStorage, using default.");
             setCameras(MOCK_CAMERAS);
         }
       } catch (error) {
         console.error("Failed to parse camera positions from localStorage", error);
-        // If parsing fails, use mock data and clear storage
         setCameras(MOCK_CAMERAS);
-        localStorage.removeItem(CAMERA_STORAGE_KEY);
       }
+    } else {
+        // If no saved data, use mocks
+        setCameras(MOCK_CAMERAS);
     }
   }, []);
 
@@ -137,14 +139,14 @@ function Dashboard() {
   }, []);
 
   const handleCameraMove = useCallback((cameraId: string, newLocation: Location) => {
+    // In commander view, moving cameras is temporary for the session
     const updatedCameras = cameras.map(c => 
         c.id === cameraId ? { ...c, location: newLocation } : c
     );
     setCameras(updatedCameras);
-    localStorage.setItem(CAMERA_STORAGE_KEY, JSON.stringify(updatedCameras));
     toast({
-        title: "Camera Repositioned",
-        description: `Camera ${cameraId} position has been updated and saved.`,
+        title: "Camera Repositioned (Session)",
+        description: `Camera ${cameraId} position updated for this session.`,
     })
   }, [cameras, toast]);
 
