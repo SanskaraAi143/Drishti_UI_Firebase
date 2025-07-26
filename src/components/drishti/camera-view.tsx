@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -16,16 +17,11 @@ import Image from 'next/image';
 import { Expand, Video } from 'lucide-react';
 import { Button } from '../ui/button';
 
-const MOCK_CAMERAS: Camera[] = Array.from({ length: 3 }, (_, i) => ({
-    id: `cam-0${i + 1}`,
-    name: `Camera Feed ${i + 1}`,
-    location: `Zone ${String.fromCharCode(65 + i)}`,
-    streamUrl: `https://placehold.co/640x480.png?text=Live+Feed+${i+1}`,
-}));
+interface CameraViewProps {
+    cameras: Camera[];
+}
 
-
-export default function CameraView() {
-  const [cameras] = useState<Camera[]>(MOCK_CAMERAS);
+export default function CameraView({ cameras }: CameraViewProps) {
   const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
 
   return (
@@ -36,7 +32,7 @@ export default function CameraView() {
             <CardHeader className="flex flex-row items-center justify-between p-4">
               <div >
                 <CardTitle className="text-base font-semibold">{camera.name}</CardTitle>
-                <p className="text-sm text-muted-foreground">{camera.location}</p>
+                 <p className="text-sm text-muted-foreground">{`${camera.location.lat.toFixed(4)}, ${camera.location.lng.toFixed(4)}`}</p>
               </div>
               <Button size="icon" variant="ghost" onClick={() => setSelectedCamera(camera)}>
                   <Expand className="h-5 w-5" />
@@ -61,7 +57,7 @@ export default function CameraView() {
         <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>{selectedCamera?.name}</DialogTitle>
-            <DialogDescription>{selectedCamera?.location}</DialogDescription>
+            <DialogDescription>{selectedCamera?.location ? `${selectedCamera.location.lat.toFixed(4)}, ${selectedCamera.location.lng.toFixed(4)}`: ''}</DialogDescription>
           </DialogHeader>
           {selectedCamera && (
             <AspectRatio ratio={16 / 9} className="bg-muted rounded-md overflow-hidden">

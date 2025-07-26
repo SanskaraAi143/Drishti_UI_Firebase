@@ -37,7 +37,9 @@ const MOCK_STAFF: Staff[] = [
 ];
 
 const MOCK_CAMERAS: Camera[] = [
-    { id: 'cam-a', name: 'Camera A (Junction)', location: { lat: 12.9685, lng: 77.5913 }, streamUrl: 'live' },
+    { id: 'cam-a', name: 'Camera A (Junction)', location: { lat: 12.9685, lng: 77.5913 }, streamUrl: 'https://placehold.co/640x480.png?text=Live+Feed+1' },
+    { id: 'cam-b', name: 'Camera B (Zone B)', location: generateRandomPoint(MOCK_CENTER, 400), streamUrl: 'https://placehold.co/640x480.png?text=Live+Feed+2' },
+    { id: 'cam-c', name: 'Camera C (Zone C)', location: generateRandomPoint(MOCK_CENTER, 400), streamUrl: 'https://placehold.co/640x480.png?text=Live+Feed+3' },
 ];
 
 function Dashboard() {
@@ -117,6 +119,9 @@ function Dashboard() {
     if (result) {
       setDirections(result);
       setRouteInfo(route);
+    } else {
+        setDirections(null);
+        setRouteInfo(null);
     }
   }, []);
   
@@ -142,7 +147,7 @@ function Dashboard() {
   const renderActiveView = () => {
     switch (activeTab) {
       case 'cameras':
-        return <CameraView />;
+        return <CameraView cameras={cameras} />;
       case 'lost-and-found':
         return <LostAndFound />;
       case 'map':
