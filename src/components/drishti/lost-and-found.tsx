@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useRef } from 'react';
@@ -16,7 +17,9 @@ import type { FindPersonOutput } from '@/ai/flows/lost-and-found-flow';
 
 const LostAndFoundSchema = z.object({
   name: z.string().optional(),
-  photo: z.any().refine(files => typeof window === 'undefined' || (files instanceof FileList && files.length > 0), 'An image is required.'),
+  photo: z
+    .custom<FileList>()
+    .refine((files) => files?.length > 0, 'An image is required.'),
 });
 type LostAndFoundForm = z.infer<typeof LostAndFoundSchema>;
 
@@ -32,7 +35,10 @@ export default function LostAndFound() {
 
   const form = useForm<LostAndFoundForm>({
     resolver: zodResolver(LostAndFoundSchema),
+    mode: 'onChange'
   });
+
+  const { register, handleSubmit, formState: { errors, isValid } } = form;
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -99,6 +105,8 @@ export default function LostAndFound() {
     }
   };
 
+  const photoRef = register('photo');
+
   return (
     <div className="p-4 space-y-4">
       <Card>
@@ -107,10 +115,10 @@ export default function LostAndFound() {
           <CardDescription>Upload a photo of the person you are looking for. Our AI will scan camera feeds for a match.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="name">Person&apos;s Name (Optional)</Label>
-              <Input id="name" {...form.register('name')} placeholder="e.g., Jane Doe" disabled={isSubmitting} />
+              <Input id="name" {...register('name')} placeholder="e.g., Jane Doe" disabled={isSubmitting} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="photo">Photo</Label>
@@ -118,8 +126,11 @@ export default function LostAndFound() {
                 id="photo"
                 type="file"
                 accept={ACCEPTED_IMAGE_TYPES.join(',')}
-                {...form.register('photo')}
-                onChange={handlePhotoChange}
+                {...photoRef}
+                onChange={(e) => {
+                  photoRef.onChange(e);
+                  handlePhotoChange(e);
+                }}
                 ref={fileInputRef}
                 className="hidden"
                 disabled={isSubmitting}
@@ -128,14 +139,14 @@ export default function LostAndFound() {
                 <Upload className="mr-2 h-4 w-4" />
                 {preview ? 'Change Photo' : 'Upload Photo'}
               </Button>
-              {form.formState.errors.photo && <p className="text-sm font-medium text-destructive">{(form.formState.errors.photo as any).message}</p>}
+              {errors.photo && <p className="text-sm font-medium text-destructive">{errors.photo.message}</p>}
             </div>
             {preview && (
               <div className="flex justify-center">
                 <Image src={preview} alt="Preview" width={200} height={200} className="rounded-md object-cover aspect-square" />
               </div>
             )}
-            <Button type="submit" disabled={isSubmitting || !preview} className="w-full">
+            <Button type="submit" disabled={isSubmitting || !isValid} className="w-full">
               {isSubmitting ? <Loader className="animate-spin mr-2" /> : <UserSearch className="mr-2" />}
               {isSubmitting ? 'Searching...' : 'Start Search'}
             </Button>

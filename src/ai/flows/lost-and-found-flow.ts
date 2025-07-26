@@ -1,3 +1,4 @@
+
 /**
  * @fileOverview A flow for finding a person using an image.
  *
@@ -33,30 +34,50 @@ const FindPersonOutputSchema = z.object({
 });
 export type FindPersonOutput = z.infer<typeof FindPersonOutputSchema>;
 
-// This is where you would implement your backend logic to search for the person.
-// For now, it returns a mock response.
+// This function now calls the external endpoint
 async function performFaceSearch(input: FindPersonInput): Promise<FindPersonOutput> {
-  console.log('Performing face search for:', input.name || 'Unknown');
-  // Mock finding a person
-  const found = Math.random() > 0.3; // 70% chance of finding someone
-  if (found) {
-    return {
-      found: true,
-      message: `We have a potential match for ${input.name || 'the person'}.`,
-      lastSeen: {
-        location: 'Main Stage',
-        timestamp: new Date(Date.now() - 15 * 60000).toISOString(),
-        cameraId: 'cam-04',
+  console.log('Sending face search request for:', input.name || 'Unknown');
+  const endpoint = 'http://localhost:5000/lost-find';
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        name: input.name,
+        image: input.photoDataUri, // Send the data URI
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Endpoint request failed with status ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json();
+    
+    // Adapt the response from the endpoint to the FindPersonOutputSchema
+    // This assumes the endpoint returns a similar structure.
+    // You might need to adjust this mapping based on the actual endpoint response.
+    return {
+      found: result.found,
+      message: result.message,
+      lastSeen: result.lastSeen ? {
+        location: result.lastSeen.location,
+        timestamp: result.lastSeen.timestamp,
+        cameraId: result.lastSeen.cameraId,
+      } : undefined,
     };
-  } else {
+  } catch (error: any) {
+    console.error('Error calling face search endpoint:', error);
     return {
       found: false,
-      message: `We could not find a match for ${input.name || 'the person'}. We will continue to monitor the feeds.`,
+      message: `Failed to connect to the search service. ${error.message}`,
     };
   }
 }
-
 
 const findPersonFlow = ai.defineFlow(
   {
@@ -65,9 +86,7 @@ const findPersonFlow = ai.defineFlow(
     outputSchema: FindPersonOutputSchema,
   },
   async (input) => {
-    // In a real implementation, you would call your face detection/matching service here.
-    // The prompt is here just to demonstrate the flow structure, but the core logic
-    // would be in a custom function call.
+    // The core logic is now to call the external endpoint.
     return await performFaceSearch(input);
   }
 );
