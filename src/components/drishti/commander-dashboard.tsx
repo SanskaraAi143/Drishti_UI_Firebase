@@ -162,9 +162,9 @@ function Dashboard() {
     setActiveTab('map');
   }, []);
 
-  const handleToggleLayer = (layer: keyof MapLayers) => {
+  const handleToggleLayer = useCallback((layer: keyof MapLayers) => {
     setMapLayers(prev => ({ ...prev, [layer]: !prev[layer] }));
-  };
+  }, []);
 
   const handleMapInteraction = useCallback((center: Location, zoom: number) => {
     setMapCenter(center);

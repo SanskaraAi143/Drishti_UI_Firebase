@@ -172,23 +172,25 @@ const DirectionsRenderer = ({
     }, [directionsRenderer, directions, render, map]);
 
     useEffect(() => {
-        if (directions && onDirectionsChange) {
-            const leg = directions.routes[0]?.legs[0];
-            if (leg && leg.distance && leg.duration && leg.steps) {
-                const route: Route = {
-                    distance: leg.distance.text,
-                    duration: leg.duration.text,
-                    steps: leg.steps.map(step => ({
-                        instructions: step.instructions.replace(/<[^>]*>/g, ""),
-                        distance: step.distance!.text,
-                        duration: step.duration!.text
-                    })),
-                    googleMapsUrl: `https://www.google.com/maps/dir/?api=1&origin=${leg.start_location.lat()},${leg.start_location.lng()}&destination=${leg.end_location.lat()},${leg.end_location.lng()}&travelmode=driving`
-                };
-                onDirectionsChange(directions, route);
+        if (onDirectionsChange) {
+            if (directions) {
+                const leg = directions.routes[0]?.legs[0];
+                if (leg && leg.distance && leg.duration && leg.steps) {
+                    const route: Route = {
+                        distance: leg.distance.text,
+                        duration: leg.duration.text,
+                        steps: leg.steps.map(step => ({
+                            instructions: step.instructions.replace(/<[^>]*>/g, ""),
+                            distance: step.distance!.text,
+                            duration: step.duration!.text
+                        })),
+                        googleMapsUrl: `https://www.google.com/maps/dir/?api=1&origin=${leg.start_location.lat()},${leg.start_location.lng()}&destination=${leg.end_location.lat()},${leg.end_location.lng()}&travelmode=driving`
+                    };
+                    onDirectionsChange(directions, route);
+                }
+            } else {
+                onDirectionsChange(null, null);
             }
-        } else if (onDirectionsChange) {
-            onDirectionsChange(null, null);
         }
     }, [directions, onDirectionsChange]);
 
