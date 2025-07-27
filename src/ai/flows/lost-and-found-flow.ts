@@ -37,7 +37,7 @@ export type FindPersonOutput = z.infer<typeof FindPersonOutputSchema>;
 // This function now calls the external endpoint
 async function performFaceSearch(input: FindPersonInput): Promise<FindPersonOutput> {
   console.log('Sending face search request for:', input.name || 'Unknown');
-  const endpoint = 'http://localhost:5000/lost-find';
+  const endpoint = process.env.NEXT_PUBLIC_API_HOST + '/search_face'; // Use the environment variable for the endpoint
 
   try {
     const response = await fetch(endpoint, {

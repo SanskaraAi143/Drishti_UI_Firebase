@@ -45,7 +45,7 @@ export type Camera = {
   id: string;
   name: string;
   location: Location;
-  videoUrl: string;
+  streamUrl: string; // Added streamUrl
 };
 
 export type LostAndFoundPerson = {

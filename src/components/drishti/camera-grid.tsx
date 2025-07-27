@@ -4,7 +4,6 @@ import { type Camera } from '@/lib/types';
 import { useEffect, useRef, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { AlertTriangle } from 'lucide-react';
 
 interface CameraGridProps {
   cameras: Camera[];
@@ -21,84 +20,69 @@ interface HeatmapPoint {
   weight: number;
 }
 
-const WEBSOCKET_ENDPOINT = 'ws://localhost:8001/'; // WebSocket endpoint
+const API_HOST = process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:8001'; // Default to localhost if not set
+const HTTP_ENDPOINT = `${API_HOST}/camera_metrics`;
 
 export default function CameraGrid({ cameras, onHeatmapUpdate }: CameraGridProps) {
   const [crowdCounts, setCrowdCounts] = useState<CrowdCountData>({});
   const { toast } = useToast();
-  const websocketRef = useRef<WebSocket | null>(null);
 
-  // --- WebSocket Logic ---
   useEffect(() => {
-    console.log('Attempting to connect to WebSocket:', WEBSOCKET_ENDPOINT);
-    // Connect to the WebSocket
-    websocketRef.current = new WebSocket(WEBSOCKET_ENDPOINT);
-
-    websocketRef.current.onopen = () => {
-      console.log('WebSocket connection established successfully.');
-    };
-
-    // Handle incoming messages
-    websocketRef.current.onmessage = (event) => {
-      console.log('WebSocket message received:', event.data);
+    const fetchData = async () => {
       try {
-        const data: CrowdCountData = JSON.parse(event.data);
-        console.log('Parsed crowd data:', data);
-        setCrowdCounts(data);
-
-        // Map the crowd count data to heatmap points using camera GPS coordinates
-        const heatmapPoints: HeatmapPoint[] = Object.keys(data)
-          .map(cameraId => {
-            // Find the corresponding camera object using the cameraId (e.g., "cam_angle1.mp4")
-            const camera = cameras.find(c => c.id === cameraId);
-            // If camera is found, create a HeatmapPoint
+        const response = await fetch(HTTP_ENDPOINT);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data: CrowdCountData = await response.json();
+        console.log('Fetched crowd data:', data); // Added log
+        
+        // Map the incoming data keys (streamUrl filenames) to camera IDs
+        const mappedCrowdCounts: CrowdCountData = {};
+        Object.keys(data).forEach(streamFileName => {
+            // Extract filename from camera.streamUrl for a more robust match
+            const camera = cameras.find(c => {
+                const urlParts = c.streamUrl.split('/');
+                const cameraFileName = urlParts[urlParts.length - 1];
+                return cameraFileName === streamFileName;
+            });
             if (camera) {
-              console.log(`Mapping camera ${cameraId} (lat: ${camera.gps.lat}, lng: ${camera.gps.lng}) with weight ${data[cameraId]}`);
-              return { lat: camera.gps.lat, lng: camera.gps.lng, weight: data[cameraId] };
+                mappedCrowdCounts[camera.id] = data[streamFileName];
+            }
+        });
+        setCrowdCounts(mappedCrowdCounts);
+
+        const heatmapPoints: HeatmapPoint[] = Object.keys(mappedCrowdCounts) // Use mappedCrowdCounts for heatmap points
+          .map(cameraId => {
+            const camera = cameras.find(c => c.id === cameraId);
+            if (camera) {
+              return { lat: camera.location.lat, lng: camera.location.lng, weight: mappedCrowdCounts[cameraId] };
             } else {
-              console.warn(`Camera with ID "${cameraId}" not found in provided cameras list. Skipping heatmap point.`);
               return null;
             }
           })
-          .filter((p): p is HeatmapPoint => p !== null); // Filter out any nulls (cameras not found)
-
+          .filter((p): p is HeatmapPoint => p !== null);
+        console.log('Generated heatmap points:', heatmapPoints); // Added log
         onHeatmapUpdate(heatmapPoints);
-        console.log('Heatmap points updated:', heatmapPoints);
 
       } catch (error) {
-        console.error('Error parsing websocket message:', error);
+        console.error('Error fetching crowd data:', error);
         toast({
           title: 'Error',
-          description: 'Failed to process crowd data from websocket.',
+          description: `Failed to fetch crowd data from ${HTTP_ENDPOINT}.`,
           variant: 'destructive',
         });
       }
     };
 
-    // Handle WebSocket errors
-    websocketRef.current.onerror = (error) => {
-      console.error('WebSocket error occurred:', error);
-      toast({
-        title: 'Error',
-        description: 'WebSocket connection error.',
-        variant: 'destructive',
-      });
-    };
+    // Fetch data immediately on mount
+    fetchData();
 
-    // Handle WebSocket closure
-    websocketRef.current.onclose = (event) => {
-      console.log('WebSocket connection closed. Code:', event.code, 'Reason:', event.reason);
-      if (!event.wasClean) {
-        console.warn('WebSocket connection was not closed cleanly.');
-      }
-      // Optionally, implement reconnect logic here if needed
-    };
+    // Set up interval to fetch data every 5 seconds for diagnostic purposes
+    const intervalId = setInterval(fetchData, 5000); // Changed from 15 seconds to 5 seconds
 
-    // Clean up the WebSocket connection on component unmount
-    return () => {
-      console.log('Cleaning up WebSocket connection...');
-      websocketRef.current?.close();
-    };
+    // Clean up interval on component unmount
+    return () => clearInterval(intervalId);
   }, [cameras, onHeatmapUpdate, toast]); // Dependencies: cameras (to find GPS), onHeatmapUpdate (to pass data up), toast
 
   return (
@@ -109,20 +93,17 @@ export default function CameraGrid({ cameras, onHeatmapUpdate }: CameraGridProps
             <CardTitle>{camera.name}</CardTitle>
           </CardHeader>
           <CardContent>
-            {/* Placeholder for video feed or image - This part remains unchanged as per your original code */}
-            <div className="w-full h-48 bg-gray-200 flex items-center justify-center text-gray-500">
-              Video Feed / Image Placeholder
+            <div className="w-full h-48 bg-gray-900 flex items-center justify-center text-gray-500 overflow-hidden">
+              {camera.streamUrl ? (
+                <video src={camera.streamUrl} autoPlay loop muted className="w-full h-full object-cover" />
+              ) : (
+                <div className="text-center">No Video Stream Available</div>
+              )}
             </div>
             <div className="mt-2">
               <strong>Crowd Count:</strong>{' '}
               {crowdCounts[camera.id] !== undefined ? crowdCounts[camera.id] : 'Loading...'}
             </div>
-            {camera.status === 'alert' && (
-              <div className="mt-2 text-yellow-600 flex items-center">
-                <AlertTriangle className="mr-1 w-5 h-5" />
-                <span>Incident Detected</span>
-              </div>
-            )}
           </CardContent>
         </Card>
       ))}

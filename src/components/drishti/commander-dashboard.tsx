@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import AiChatWidget from './ai-chat-widget';
 import { useMapsLibrary } from '@vis.gl/react-google-maps';
-import CameraView from './camera-view';
+import CameraGrid from './camera-grid'; // Changed from CameraView to CameraGrid
 
 // --- MOCK DATA and CONSTANTS ---
 const MOCK_CENTER: Location = { lat: 12.9716, lng: 77.5946 };
@@ -26,10 +26,10 @@ const MOCK_STAFF: Staff[] = [
 ];
 
 const MOCK_CAMERAS: Camera[] = [
-    { id: 'cam-a', name: 'Camera A (Zone A)', location: { lat: 12.9685, lng: 77.5913 }, streamUrl: 'https://storage.googleapis.com/event_safety/cam_angle1.mp4' },
-    { id: 'cam-b', name: 'Camera B (Zone B)', location: { lat: 12.9720, lng: 77.5980 }, streamUrl: 'https://storage.googleapis.com/event_safety/cam_angle2.mp4' },
-    { id: 'cam-c', name: 'Camera C (Zone C)', location: { lat: 12.9760, lng: 77.5960 }, streamUrl: 'https://storage.googleapis.com/event_safety/cam_angle3.mp4' },
-    { id: 'cam-d', name: 'Camera D (Zone D)', location: { lat: 12.9700, lng: 77.5960 }, streamUrl: 'https://storage.googleapis.com/event_safety/cam_angle4.mp4' },
+    { id: 'cam1', name: 'Camera A (Zone A)', location: { lat: 12.9685, lng: 77.5913 }, streamUrl: 'https://storage.googleapis.com/event_safety/cam_angle1.mp4' },
+    { id: 'cam2', name: 'Camera B (Zone B)', location: { lat: 12.9720, lng: 77.5980 }, streamUrl: 'https://storage.googleapis.com/event_safety/cam_angle2.mp4' },
+    { id: 'cam3', name: 'Camera C (Zone C)', location: { lat: 12.9760, lng: 77.5960 }, streamUrl: 'https://storage.googleapis.com/event_safety/cam_angle3.mp4' },
+    { id: 'cam4', name: 'Camera D (Zone D)', location: { lat: 12.9700, lng: 77.5960 }, streamUrl: 'https://storage.googleapis.com/event_safety/cam_angle4.mp4' },
 ];
 const CAMERA_STORAGE_KEY = 'drishti-planning-camera-positions';
 
@@ -63,6 +63,7 @@ function Dashboard() {
   const [mapLayers, setMapLayers] = useState<MapLayers>({ heatmap: true, staff: true, incidents: true, cameras: true, bottlenecks: true });
   const [mapCenter, setMapCenter] = useState<Location>(MOCK_CENTER);
   const [mapZoom, setMapZoom] = useState(15);
+  const [heatmapPoints, setHeatmapPoints] = useState<HeatmapPoint[]>([]); // Added heatmapPoints state
   const { toast } = useToast();
   const routesLibrary = useMapsLibrary('routes');
   const directionsServiceRef = useRef<google.maps.DirectionsService>();
@@ -94,7 +95,7 @@ function Dashboard() {
     return () => clearInterval(interval);
   }, [cameras, toast]);
   
-  const handleTabSelect = (tab: 'alerts' | 'staff' | 'lost-and-found' | 'cameras') => {
+  const handleTabSelect = (tab: string) => { // Widened type to string
       setActiveTab(tab);
   };
 
@@ -122,12 +123,16 @@ function Dashboard() {
     toast({ title: "Camera Repositioned (Session)", description: `Camera ${cameras.find(c=>c.id === cameraId)?.name} position updated.` });
   }, [cameras, toast]);
 
+  const handleHeatmapUpdate = useCallback((points: HeatmapPoint[]) => { // Added handleHeatmapUpdate
+    setHeatmapPoints(points);
+  }, []);
+
   const renderActiveView = () => {
     switch (activeTab) {
         case 'lost-and-found':
             return <LostAndFound />;
         case 'cameras':
-            return <CameraView cameras={cameras} isCommanderAtJunctionA={false} />;
+            return <CameraGrid cameras={cameras} onHeatmapUpdate={handleHeatmapUpdate} />; // Changed from CameraView to CameraGrid
         case 'alerts':
         case 'staff':
         default:
@@ -139,7 +144,7 @@ function Dashboard() {
                     onCameraMove={handleCameraMove} onMapInteraction={handleMapInteraction}
                     incidentDirections={incidentRoute.directions} onIncidentDirectionsChange={handleDirectionsChange}
                     isIncidentRouteActive={!!selectedIncident && selectedIncident.severity === 'High'}
-                    heatmapData={[]}
+                    heatmapData={heatmapPoints} // Pass heatmapPoints to MapView
                 />
             );
     }

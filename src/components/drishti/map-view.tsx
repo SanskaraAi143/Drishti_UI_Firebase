@@ -92,35 +92,39 @@ const CameraMarker = ({ camera, onClick, onDragEnd }: { camera: Camera, onClick:
     );
   };
 
-const MapLayersComponent = ({ layers, incidents }: Pick<MapViewProps, 'layers' | 'incidents'>) => {
-    const map = useMap();
-    const visualizationLibrary = useMapsLibrary('visualization');
-    const [heatmap, setHeatmap] = React.useState<google.maps.visualization.HeatmapLayer | null>(null);
+const MapLayersComponent = ({ layers, heatmapData }: { layers: MapLayers; heatmapData: HeatmapPoint[] }) => {
+  const map = useMap();
+  const visualizationLibrary = useMapsLibrary('visualization');
+  const [heatmap, setHeatmap] = React.useState<google.maps.visualization.HeatmapLayer | null>(null);
 
-    React.useEffect(() => {
-        if (!map || !visualizationLibrary) return;
+  React.useEffect(() => {
+      if (!map || !visualizationLibrary) return;
 
-        if (!heatmap) {
-            const newHeatmap = new visualizationLibrary.HeatmapLayer({
-                data: [],
-                map: map,
-                radius: 40
-            });
-            setHeatmap(newHeatmap);
-        }
-        
-        const heatmapData = incidents.map(incident => new google.maps.LatLng(incident.location.lat, incident.location.lng));
-        heatmap?.setData(heatmapData);
+      if (!heatmap) {
+          const newHeatmap = new visualizationLibrary.HeatmapLayer({
+              data: [],
+              map: map,
+              radius: 40
+          });
+          setHeatmap(newHeatmap);
+      }
+      
+      // Use heatmapData directly
+      const googleHeatmapData = heatmapData.map(point => ({
+        location: new google.maps.LatLng(point.lat, point.lng),
+        weight: point.weight,
+      }));
+      heatmap?.setData(googleHeatmapData);
 
-    }, [map, visualizationLibrary, incidents, heatmap]);
-    
-    React.useEffect(() => {
-        if(heatmap) {
-            heatmap.setMap(layers.heatmap ? map : null);
-        }
-    }, [layers.heatmap, heatmap, map])
-    
-    return null;
+  }, [map, visualizationLibrary, heatmapData, heatmap]);
+  
+  React.useEffect(() => {
+      if(heatmap) {
+          heatmap.setMap(layers.heatmap ? map : null);
+      }
+  }, [layers.heatmap, heatmap, map])
+  
+  return null;
 }
 
 const DirectionsRenderer = ({ 
@@ -369,7 +373,7 @@ const MapEvents = ({ onMapInteraction }: Pick<MapViewProps, 'onMapInteraction'>)
 }
 
 
-const MapContent = ({ staff, setStaff, incidents, cameras, layers, onIncidentClick, onCameraClick, onCameraMove, onMapInteraction, patrolRoute, incidentDirections, onIncidentDirectionsChange, isIncidentRouteActive }: Omit<MapViewProps, 'center' | 'zoom'>) => {
+const MapContent = ({ staff, setStaff, incidents, cameras, layers, onIncidentClick, onCameraClick, onCameraMove, onMapInteraction, patrolRoute, incidentDirections, onIncidentDirectionsChange, isIncidentRouteActive, heatmapData }: Omit<MapViewProps, 'center' | 'zoom'> & { heatmapData: HeatmapPoint[] }) => {
   const map = useMap();
 
   if (!map) {
@@ -396,9 +400,9 @@ const MapContent = ({ staff, setStaff, incidents, cameras, layers, onIncidentCli
             }}
         />
       )}
-      <MapLayersComponent layers={layers} incidents={incidents} />
+      <MapLayersComponent layers={layers} heatmapData={heatmapData} /> {/* Pass heatmapData */}
       <MapEvents onMapInteraction={onMapInteraction} />
-      <DirectionsRenderer 
+      <DirectionsRenderer
           directions={incidentDirections} 
           onDirectionsChange={onIncidentDirectionsChange}
           routeId="incident"
@@ -416,7 +420,7 @@ const MapContent = ({ staff, setStaff, incidents, cameras, layers, onIncidentCli
 }
 
 
-export default function MapView({ center, zoom, staff, setStaff, incidents, cameras, layers, onIncidentClick, onCameraClick, onCameraMove, onMapInteraction, patrolRoute, incidentDirections, onIncidentDirectionsChange, isIncidentRouteActive }: MapViewProps) {
+export default function MapView({ center, zoom, staff, setStaff, incidents, cameras, layers, onIncidentClick, onCameraClick, onCameraMove, onMapInteraction, patrolRoute, incidentDirections, onIncidentDirectionsChange, isIncidentRouteActive, heatmapData }: MapViewProps & { heatmapData: HeatmapPoint[] }) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   if (!apiKey) {
@@ -468,6 +472,7 @@ export default function MapView({ center, zoom, staff, setStaff, incidents, came
                 incidentDirections={incidentDirections}
                 onIncidentDirectionsChange={onIncidentDirectionsChange}
                 isIncidentRouteActive={isIncidentRouteActive}
+                heatmapData={heatmapData}
               />
           </Map>
       </div>
