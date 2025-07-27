@@ -33,24 +33,6 @@ const MOCK_CAMERAS: Camera[] = [
 ];
 const CAMERA_STORAGE_KEY = 'drishti-planning-camera-positions';
 
-// --- Helper Functions ---
-const generateRandomIncident = (cameras: Camera[]): Incident => {
-    const types: Incident['type'][] = ['CrowdSurge', 'Altercation', 'Medical', 'UnattendedObject'];
-    const severities: Incident['severity'][] = ['Low', 'Medium', 'High'];
-    const randomCamera = cameras[Math.floor(Math.random() * cameras.length)];
-    return {
-        id: `inc-${Date.now()}-${Math.random()}`,
-        type: types[Math.floor(Math.random() * types.length)],
-        description: `A new ${types[Math.floor(Math.random() * 4)]} event has been detected near ${randomCamera.name}.`,
-        timestamp: new Date(),
-        location: {
-            lat: randomCamera.location.lat + (Math.random() - 0.5) * 0.001,
-            lng: randomCamera.location.lng + (Math.random() - 0.5) * 0.001,
-        },
-        severity: severities[Math.floor(Math.random() * severities.length)],
-        source: randomCamera.id,
-    };
-};
 
 function Dashboard() {
   const [activeTab, setActiveTab] = useState('alerts');
@@ -83,17 +65,6 @@ function Dashboard() {
       } catch { setCameras(MOCK_CAMERAS); }
     } else { setCameras(MOCK_CAMERAS); }
   }, []);
-
-  useEffect(() => {
-    if (cameras.length === 0) return;
-    const interval = setInterval(() => {
-        const newIncident = generateRandomIncident(cameras);
-        setIncidents(prev => [newIncident, ...prev]);
-        setAlerts(prev => [newIncident, ...prev].sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime()));
-        toast({ title: `New ${newIncident.severity} Severity Alert`, description: newIncident.description });
-    }, 15000);
-    return () => clearInterval(interval);
-  }, [cameras, toast]);
   
   const handleTabSelect = (tab: string) => { // Widened type to string
       setActiveTab(tab);
