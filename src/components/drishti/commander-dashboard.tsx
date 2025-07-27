@@ -48,6 +48,7 @@ function Dashboard() {
   const { toast } = useToast();
   const routesLibrary = useMapsLibrary('routes');
   const directionsServiceRef = useRef<google.maps.DirectionsService>();
+  const isFirstAlertRef = useRef(true);
 
   useEffect(() => { if (routesLibrary) { directionsServiceRef.current = new routesLibrary.DirectionsService(); } }, [routesLibrary]);
 
@@ -98,9 +99,9 @@ function Dashboard() {
   const handleStaffClick = (staffMember: Staff) => {
     setMapCenter(staffMember.location); setMapZoom(18); setActiveTab('staff');
   };
-  const handleToggleLayer = (layer: keyof MapLayers) => {
+  const handleToggleLayer = useCallback((layer: keyof MapLayers) => {
     setMapLayers(prev => ({ ...prev, [layer]: !prev[layer] }));
-  };
+  }, []);
   const handleMapInteraction = (center: Location, zoom: number) => {
     setMapCenter(center); setMapZoom(zoom);
   };
