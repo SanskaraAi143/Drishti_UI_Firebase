@@ -1,6 +1,7 @@
 
 'use client';
 
+import { useState } from 'react';
 import type { Incident, Route } from '@/lib/types';
 import {
   Dialog,
@@ -11,31 +12,39 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { MapPin, Clock, ShieldAlert, Wifi, Route as RouteIcon, ExternalLink, StepForward, Timer, Milestone } from 'lucide-react';
+import { MapPin, Clock, ShieldAlert, Wifi, Route as RouteIcon, ExternalLink, StepForward, Timer, Milestone, Loader } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 
 interface IncidentModalProps {
   incident: Incident | null;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onDispatch: () => void;
+  onDispatch: () => Promise<boolean>;
   route: Route | null;
 }
 
 export default function IncidentModal({ incident, isOpen, onOpenChange, onDispatch, route }: IncidentModalProps) {
-  const { toast } = useToast();
+  const [isDispatching, setIsDispatching] = useState(false);
 
   if (!incident) return null;
 
-  const handleDispatch = () => {
-    // Always trigger the route calculation via the onDispatch prop
-    onDispatch();
+  const handleDispatch = async () => {
+    setIsDispatching(true);
+    const success = await onDispatch();
+    setIsDispatching(false);
+    if(success) {
+      onOpenChange(false);
+    }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+        if (!open) {
+            onOpenChange(false);
+            setIsDispatching(false); // Reset dispatching state on close
+        }
+    }}>
       <DialogContent className={route ? "max-w-3xl" : "max-w-lg"}>
         <DialogHeader>
           <DialogTitle className="font-headline text-2xl flex items-center">
@@ -111,9 +120,14 @@ export default function IncidentModal({ incident, isOpen, onOpenChange, onDispat
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
-          <Button onClick={handleDispatch}>Dispatch Nearest Unit</Button>
+          <Button onClick={handleDispatch} disabled={isDispatching}>
+            {isDispatching && <Loader className="mr-2 h-4 w-4 animate-spin" />}
+            {isDispatching ? 'Dispatching...' : 'Dispatch Nearest Unit'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+
+    

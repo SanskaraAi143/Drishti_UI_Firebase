@@ -3,7 +3,7 @@
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { APIProvider, Map, AdvancedMarker, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
-import type { Location, Staff, Incident, MapLayers, Route, Camera } from '@/lib/types';
+import type { Location, Staff, Incident, MapLayers, Route, Camera, HeatmapPoint } from '@/lib/types';
 import { IncidentIcon } from '../icons/incident-icons';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
@@ -31,6 +31,7 @@ interface MapViewProps {
   incidentDirections: google.maps.DirectionsResult | null;
   onIncidentDirectionsChange: (result: google.maps.DirectionsResult | null, route: Route | null) => void;
   isIncidentRouteActive: boolean;
+  heatmapData: HeatmapPoint[];
 }
 
 const getRoleHint = (role: Staff['role']) => {
@@ -109,7 +110,6 @@ const MapLayersComponent = ({ layers, heatmapData }: { layers: MapLayers; heatma
           setHeatmap(newHeatmap);
       }
       
-      // Use heatmapData directly
       const googleHeatmapData = heatmapData.map(point => ({
         location: new google.maps.LatLng(point.lat, point.lng),
         weight: point.weight,
@@ -171,10 +171,13 @@ const DirectionsRenderer = ({
     }, [routesLibrary, map, color]);
 
     useEffect(() => {
-        if (!directionsRenderer) return;
+        if (!directionsRenderer || !map) return;
         if (directions && render) {
             directionsRenderer.setMap(map);
             directionsRenderer.setDirections(directions);
+            if (directions.routes[0] && directions.routes[0].bounds) {
+                map.fitBounds(directions.routes[0].bounds);
+            }
         } else {
             directionsRenderer.setMap(null);
         }
@@ -373,7 +376,7 @@ const MapEvents = ({ onMapInteraction }: Pick<MapViewProps, 'onMapInteraction'>)
 }
 
 
-const MapContent = ({ staff, setStaff, incidents, cameras, layers, onIncidentClick, onCameraClick, onCameraMove, onMapInteraction, patrolRoute, incidentDirections, onIncidentDirectionsChange, isIncidentRouteActive, heatmapData }: Omit<MapViewProps, 'center' | 'zoom'> & { heatmapData: HeatmapPoint[] }) => {
+const MapContent = ({ staff, setStaff, incidents, cameras, layers, onIncidentClick, onCameraClick, onCameraMove, onMapInteraction, patrolRoute, incidentDirections, onIncidentDirectionsChange, isIncidentRouteActive, heatmapData }: Omit<MapViewProps, 'center' | 'zoom' | 'heatmapData'> & { heatmapData: HeatmapPoint[] }) => {
   const map = useMap();
 
   if (!map) {
@@ -400,7 +403,7 @@ const MapContent = ({ staff, setStaff, incidents, cameras, layers, onIncidentCli
             }}
         />
       )}
-      <MapLayersComponent layers={layers} heatmapData={heatmapData} /> {/* Pass heatmapData */}
+      <MapLayersComponent layers={layers} heatmapData={heatmapData} />
       <MapEvents onMapInteraction={onMapInteraction} />
       <DirectionsRenderer
           directions={incidentDirections} 
@@ -420,7 +423,7 @@ const MapContent = ({ staff, setStaff, incidents, cameras, layers, onIncidentCli
 }
 
 
-export default function MapView({ center, zoom, staff, setStaff, incidents, cameras, layers, onIncidentClick, onCameraClick, onCameraMove, onMapInteraction, patrolRoute, incidentDirections, onIncidentDirectionsChange, isIncidentRouteActive, heatmapData }: MapViewProps & { heatmapData: HeatmapPoint[] }) {
+export default function MapView({ center, zoom, staff, setStaff, incidents, cameras, layers, onIncidentClick, onCameraClick, onCameraMove, onMapInteraction, patrolRoute, incidentDirections, onIncidentDirectionsChange, isIncidentRouteActive, heatmapData }: MapViewProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   if (!apiKey) {
@@ -445,7 +448,7 @@ export default function MapView({ center, zoom, staff, setStaff, incidents, came
     <APIProvider 
         apiKey={apiKey}
         onLoad={() => console.log('Maps API loaded.')}
-        libraries={['visualization', 'routes']}
+        libraries={['visualization', 'routes', 'geometry']}
     >
       <div className="w-full h-full">
           <Map
@@ -479,3 +482,5 @@ export default function MapView({ center, zoom, staff, setStaff, incidents, came
     </APIProvider>
   );
 }
+
+    

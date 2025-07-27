@@ -23,6 +23,7 @@ const MOCK_STAFF: Staff[] = [
   { id: 's1', name: 'Commander', role: 'Commander', location: COMMANDER_PATROL_ROUTE[0], avatar: `https://placehold.co/40x40.png`, status: 'Monitoring', route: null },
   { id: 's2', name: 'Medic Team Alpha', role: 'Medical', location: { lat: 12.9765, lng: 77.5965 }, avatar: 'https://placehold.co/40x40.png', status: 'Patrolling', route: null },
   { id: 's3', name: 'Sec-1 (Main Stage)', role: 'Security', location: { lat: 12.9725, lng: 77.5985 }, avatar: 'https://placehold.co/40x40.png', status: 'Patrolling', route: null },
+  { id: 's4', name: 'Sec-2 (Perimeter)', role: 'Security', location: { lat: 12.9695, lng: 77.5915 }, avatar: 'https://placehold.co/40x40.png', status: 'Patrolling', route: null },
 ];
 
 const MOCK_CAMERAS: Camera[] = [
@@ -47,6 +48,7 @@ function Dashboard() {
   const [heatmapPoints, setHeatmapPoints] = useState<HeatmapPoint[]>([]);
   const { toast } = useToast();
   const routesLibrary = useMapsLibrary('routes');
+  const geometryLibrary = useMapsLibrary('geometry');
   const directionsServiceRef = useRef<google.maps.DirectionsService>();
   const isFirstAlertRef = useRef(true);
 
@@ -123,32 +125,56 @@ function Dashboard() {
     setHeatmapPoints(points);
   }, []);
   
-  const handleDispatchRequest = () => {
-    if (!selectedIncident || !directionsServiceRef.current) return;
+ const handleDispatchRequest = async (): Promise<boolean> => {
+    if (!selectedIncident || !directionsServiceRef.current || !geometryLibrary) {
+        toast({ variant: 'destructive', title: 'Dispatch Error', description: 'Services not ready.' });
+        return false;
+    }
 
-    const commander = staff.find(s => s.role === 'Commander');
-    if (!commander) {
-      toast({ variant: 'destructive', title: 'Dispatch Error', description: 'Commander not found.' });
-      return;
+    if (staff.length === 0) {
+        toast({ variant: 'destructive', title: 'Dispatch Error', description: 'No staff available.' });
+        return false;
+    }
+
+    const incidentLocation = new google.maps.LatLng(selectedIncident.location.lat, selectedIncident.location.lng);
+
+    let nearestStaff: Staff | null = null;
+    let minDistance = Infinity;
+
+    staff.forEach(s => {
+        if(s.role !== 'Commander') { // Exclude commander from nearest unit calculation
+            const staffLocation = new google.maps.LatLng(s.location.lat, s.location.lng);
+            const distance = geometryLibrary.spherical.computeDistanceBetween(staffLocation, incidentLocation);
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestStaff = s;
+            }
+        }
+    });
+
+    if (!nearestStaff) {
+        toast({ variant: 'destructive', title: 'Dispatch Error', description: 'Could not find a suitable unit to dispatch.' });
+        return false;
     }
 
     const request: google.maps.DirectionsRequest = {
-      origin: commander.location,
-      destination: selectedIncident.location,
-      travelMode: google.maps.TravelMode.DRIVING,
+        origin: nearestStaff.location,
+        destination: selectedIncident.location,
+        travelMode: google.maps.TravelMode.DRIVING,
     };
 
-    directionsServiceRef.current.route(request, (result, status) => {
-      if (status === 'OK' && result) {
-        handleDirectionsChange(result, null); // routeInfo is set by the renderer
-        toast({ title: 'Route Calculated', description: 'Fastest route to incident is now displayed.' });
-      } else {
-        toast({ variant: 'destructive', title: 'Route Calculation Failed', description: `Could not find a route. Status: ${status}` });
-      }
-    });
-
-    onOpenChange(false); // Close the modal
+    try {
+        const result = await directionsServiceRef.current.route(request);
+        handleDirectionsChange(result, null);
+        toast({ title: 'Route Calculated', description: `Route for ${nearestStaff.name} to incident is now displayed.` });
+        return true;
+    } catch (error) {
+        console.error("Directions request failed", error);
+        toast({ variant: 'destructive', title: 'Route Calculation Failed', description: `Could not find a route. Status: ${error}` });
+        return false;
+    }
   };
+
 
   const onOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
@@ -173,7 +199,7 @@ function Dashboard() {
                     onIncidentClick={handleAlertClick} onCameraClick={handleCameraClickOnMap}
                     onCameraMove={handleCameraMove} onMapInteraction={handleMapInteraction}
                     incidentDirections={incidentRoute.directions} onIncidentDirectionsChange={handleDirectionsChange}
-                    isIncidentRouteActive={!!selectedIncident && (selectedIncident.type === 'Altercation' || selectedIncident.severity === 'High')}
+                    isIncidentRouteActive={!!selectedIncident} // Simplified logic
                     heatmapData={heatmapPoints}
                 />
             );
@@ -208,3 +234,5 @@ export default function CommanderDashboard() {
     </SidebarProvider>
   )
 }
+
+    
