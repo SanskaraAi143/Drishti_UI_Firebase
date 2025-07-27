@@ -11,6 +11,7 @@ import AlertsFeed from './alerts-feed';
 import StaffView from './staff-view';
 import { DrishtiLogo } from '../icons/drishti-logo';
 import { Sidebar as SidebarPrimitive, SidebarContent, SidebarHeader, SidebarTrigger } from '@/components/ui/sidebar';
+import Link from 'next/link';
 
 interface SidebarProps {
   alerts: Alert[];
@@ -41,9 +42,11 @@ export default function Sidebar({
   return (
     <SidebarPrimitive collapsible="icon" className="w-[380px] h-full flex flex-col bg-card border-r border-border p-4 space-y-4">
       <SidebarHeader>
-        <div className="flex items-center space-x-3 px-2">
-          <DrishtiLogo className="h-8 w-8 text-primary" />
-          <h1 className="text-2xl font-headline font-bold text-foreground">Drishti Commander</h1>
+        <div className="flex items-center space-x-3 px-2 justify-between w-full">
+          <Link href="/" className="flex items-center space-x-3">
+            <DrishtiLogo className="h-8 w-8 text-primary" />
+            <h1 className="text-2xl font-headline font-bold text-foreground">Drishti Commander</h1>
+          </Link>
           <SidebarTrigger />
         </div>
       </SidebarHeader>
