@@ -59,15 +59,6 @@ export default function AiChatWidget({ incidents }: { incidents: any[] }) {
   }, [messages]);
 
   const handleAiAction = async (prompt: string, action: AiAction) => {
-    if (!prompt.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Invalid Input",
-        description: "Please enter a valid question or prompt.",
-      });
-      return;
-    }
-
     setIsSubmitting(true);
     const userMessage: Message = { id: Date.now(), role: 'user', text: prompt };
     setMessages(prev => [...prev, userMessage]);
@@ -80,27 +71,15 @@ export default function AiChatWidget({ incidents }: { incidents: any[] }) {
     try {
       let result;
       if (action === 'summarize') {
-        if (incidents.length === 0) {
-          throw new Error("No incidents available to summarize");
-        }
         result = await summarizeIncidents(incidents);
       } else {
         result = await queryIncidentAnomalies({ query: prompt });
       }
-      
-      const assistantMessage: Message = { 
-        id: Date.now() + 2, 
-        role: 'assistant', 
-        text: result.summary || "I couldn't generate a response. Please try again."
-      };
+      const assistantMessage: Message = { id: Date.now() + 2, role: 'assistant', text: result.summary };
       setMessages(prev => [...prev.slice(0, -1), assistantMessage]);
     } catch (error) {
       console.error(`AI ${action} failed:`, error);
-      const errorMessage: Message = { 
-        id: Date.now() + 2, 
-        role: 'assistant', 
-        text: `Sorry, I couldn't process your ${action} request. ${error instanceof Error ? error.message : 'Please try again later.'}`
-      };
+      const errorMessage: Message = { id: Date.now() + 2, role: 'assistant', text: `Sorry, I couldn't process your ${action} request.` };
       setMessages(prev => [...prev.slice(0, -1), errorMessage]);
       toast({
         variant: "destructive",
@@ -180,7 +159,6 @@ export default function AiChatWidget({ incidents }: { incidents: any[] }) {
                                 className="h-auto text-wrap text-left justify-start"
                                 onClick={() => handleDefaultQuestionClick(q)}
                                 disabled={isSubmitting}
-                                aria-label={`Ask: ${q}`}
                             >
                                 {q}
                             </Button>
@@ -205,7 +183,7 @@ export default function AiChatWidget({ incidents }: { incidents: any[] }) {
                         autoComplete="off"
                         disabled={isSubmitting}
                     />
-                    <Button type="submit" size="icon" disabled={isSubmitting} aria-label="Send message">
+                    <Button type="submit" size="icon" disabled={isSubmitting}>
                         {isSubmitting ? <Loader className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                     </Button>
                 </form>

@@ -26,7 +26,7 @@ const severityIconClasses = {
 
 export default function AlertsFeed({ alerts, onAlertClick }: AlertsFeedProps) {
   return (
-    <ScrollArea className="h-[calc(100%-1rem)]">
+    <ScrollArea className="h-full">
       <div className="space-y-3 pr-2">
         {alerts.map((alert) => (
           <Card
@@ -49,6 +49,11 @@ export default function AlertsFeed({ alerts, onAlertClick }: AlertsFeedProps) {
             </CardContent>
           </Card>
         ))}
+        {alerts.length === 0 && (
+            <div className="text-center text-muted-foreground py-8">
+                <p>No active alerts.</p>
+            </div>
+        )}
       </div>
     </ScrollArea>
   );

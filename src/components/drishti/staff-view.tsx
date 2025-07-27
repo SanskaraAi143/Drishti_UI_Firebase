@@ -32,7 +32,7 @@ const getRoleHint = (role: Staff['role']) => {
 
 export default function StaffView({ staff, onStaffClick }: StaffViewProps) {
   return (
-    <ScrollArea className="h-[calc(100%-1rem)]">
+    <ScrollArea className="h-full">
       <div className="space-y-3 pr-2">
         {staff.map((s) => (
           <Card key={s.id} className="transition-colors hover:bg-muted/50">
@@ -49,7 +49,7 @@ export default function StaffView({ staff, onStaffClick }: StaffViewProps) {
                     <span className="ml-1.5">{s.status}</span>
                 </div>
               </div>
-              <Button size="sm" variant="outline" onClick={() => onStaffClick(s)} aria-label={`Locate ${s.name} on map`}>
+              <Button size="sm" variant="outline" onClick={() => onStaffClick(s)}>
                 <MapPin className="mr-2 h-4 w-4" />
                 Locate
               </Button>

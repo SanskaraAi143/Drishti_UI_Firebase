@@ -1,3 +1,4 @@
+'use client';
 
 import CommanderDashboard from '@/components/drishti/commander-dashboard';
 

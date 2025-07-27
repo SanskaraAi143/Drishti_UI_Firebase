@@ -43,7 +43,7 @@ export function PlanningHeader({ currentStep, planId }: PlanningHeaderProps) {
               disabled={(currentStep < step.number || !planId) && step.number > 2 && step.name !== 'Intelligence Intake'}
               asChild
             >
-              <Link href={step.href} aria-label={`Navigate to ${step.name}`}>
+              <Link href={step.href}>
                 <span className={cn("hidden md:inline-flex items-center justify-center h-6 w-6 rounded-full mr-2",
                  currentStep >= step.number ? "bg-accent text-accent-foreground" : "bg-muted-foreground/20"
                 )}>

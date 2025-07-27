@@ -19,8 +19,8 @@ interface SidebarProps {
   onStaffClick: (staff: Staff) => void;
   mapLayers: MapLayers;
   onToggleLayer: (layer: keyof MapLayers) => void;
+  onTabSelect: (tab: string) => void;
   activeTab: string;
-  setActiveTab: (tab: string) => void;
 }
 
 export default function Sidebar({
@@ -30,17 +30,12 @@ export default function Sidebar({
   onStaffClick,
   mapLayers,
   onToggleLayer,
+  onTabSelect,
   activeTab,
-  setActiveTab
 }: SidebarProps) {
   
   const handleTabChange = (value: string) => {
-    // These tabs have their own views, others default to map
-    if (['cameras', 'lost-and-found'].includes(value)) {
-      setActiveTab(value);
-    } else {
-      setActiveTab('map');
-    }
+    onTabSelect(value);
   }
 
   return (
@@ -54,7 +49,7 @@ export default function Sidebar({
       </SidebarHeader>
       
       <SidebarContent>
-        <Tabs defaultValue="alerts" className="flex-grow flex flex-col overflow-hidden" onValueChange={handleTabChange}>
+        <Tabs value={activeTab} className="flex-grow flex flex-col overflow-hidden" onValueChange={handleTabChange}>
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="alerts"><Bell className="mr-2 h-4 w-4"/>Alerts</TabsTrigger>
             <TabsTrigger value="staff"><Users className="mr-2 h-4 w-4"/>Staff</TabsTrigger>
@@ -63,13 +58,14 @@ export default function Sidebar({
           </TabsList>
           
           {/* Main content tabs */}
-          <TabsContent value="alerts" className="flex-grow overflow-auto mt-4">
+          <TabsContent value="alerts" className="mt-4 flex-grow overflow-hidden">
             <AlertsFeed alerts={alerts} onAlertClick={onAlertClick} />
           </TabsContent>
-          <TabsContent value="staff" className="flex-grow overflow-auto mt-4">
+          <TabsContent value="staff" className="mt-4 flex-grow overflow-hidden">
             <StaffView staff={staff} onStaffClick={onStaffClick} />
           </TabsContent>
-          {/* The content for 'cameras' and 'lost-and-found' are handled in commander-dashboard */}
+          {/* The content for 'cameras' and 'lost-and-found' are handled in commander-dashboard, 
+              but the TabsContent containers are needed for the Tabs component to work correctly. */}
           <TabsContent value="cameras" className="mt-4"/>
           <TabsContent value="lost-and-found" className="mt-4"/>
         </Tabs>

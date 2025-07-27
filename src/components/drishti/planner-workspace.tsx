@@ -20,8 +20,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Camera, Construction, Tent, Ambulance, TowerControl, Pin, Lightbulb, Loader, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { generateSafetyPlan, type GenerateSafetyPlanOutput } from '@/ai/flows/generate-safety-plan-flow';
-import { isGoogleMapsConfigured, getGoogleMapsApiKey } from '@/lib/config';
-import { localStorage_getItem, localStorage_setItem, safeJsonParse, safeJsonStringify } from '@/lib/error-utils';
 
 const MOCK_CENTER = { lat: 12.9716, lng: 77.5946 };
 
@@ -133,78 +131,59 @@ export function PlannerWorkspace({ planId }: { planId: string }) {
     const [isAiLoading, setIsAiLoading] = useState(true);
     const [highlight, setHighlight] = useState<{center: google.maps.LatLngLiteral, radius: number} | null>(null);
     const mapRef = React.useRef<google.maps.Map>(null);
-    const [isMounted, setIsMounted] = useState(false);
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     const { toast } = useToast();
 
     useEffect(() => {
-        setIsMounted(true);
-    }, []);
-
-    useEffect(() => {
-        if (!isMounted) return;
-        
         let data: any = null;
         try {
-            const dataStr = localStorage_getItem(`drishti-plan-${planId}`);
-            const assetsStr = localStorage_getItem(`drishti-plan-assets-${planId}`);
+            const dataStr = localStorage.getItem(`drishti-plan-${planId}`);
+            const assetsStr = localStorage.getItem(`drishti-plan-assets-${planId}`);
             if (dataStr) {
-                data = safeJsonParse(dataStr);
-                if (data) {
-                    setPlanData(data);
-                    if (data.geofence && data.geofence.length > 0) {
-                        const bounds = new window.google.maps.LatLngBounds();
-                        data.geofence.forEach((p: any) => bounds.extend(p));
-                        setMapCenter(bounds.getCenter().toJSON());
-                    }
+                data = JSON.parse(dataStr);
+                setPlanData(data);
+                if (data.geofence && data.geofence.length > 0) {
+                    const bounds = new window.google.maps.LatLngBounds();
+                    data.geofence.forEach((p: any) => bounds.extend(p));
+                    setMapCenter(bounds.getCenter().toJSON());
                 }
             }
-            if (assetsStr) {
-                const assets = safeJsonParse(assetsStr);
-                if (assets) {
-                    setPlacedAssets(assets);
-                }
+            if(assetsStr) {
+                setPlacedAssets(JSON.parse(assetsStr));
             }
-        } catch (error) {
-            console.error("Failed to load plan data:", error);
+        } catch (e) {
             toast({ variant: 'destructive', title: "Could not load plan data." });
             return;
         }
 
-        if (data && isGoogleMapsConfigured()) {
+        if (data && apiKey) {
             setIsAiLoading(true);
-            try {
-                const apiKey = getGoogleMapsApiKey();
-                const mapImageUrl = getStaticMapUrl(data.geofence, apiKey);
-                
-                generateSafetyPlan({
-                    eventName: data.eventName,
-                    eventType: data.eventType,
-                    peakAttendance: data.peakAttendance,
-                    vipPresence: data.vipPresence,
-                    eventSentiment: data.eventSentiment,
-                    securityConcerns: data.securityConcerns,
-                    mapImageUrl: mapImageUrl
-                }).then(response => {
-                    setAiRecommendations(response.recommendations || []);
-                }).catch(err => {
-                    console.error("AI recommendation error:", err);
-                    toast({ variant: 'destructive', title: 'Could not get AI recommendations.', description: 'The AI service may be temporarily unavailable.' });
-                }).finally(() => {
-                    setIsAiLoading(false);
-                });
-            } catch (error) {
-                console.error("Failed to get API key or generate map:", error);
+            const mapImageUrl = getStaticMapUrl(data.geofence, apiKey);
+            
+            generateSafetyPlan({
+                eventName: data.eventName,
+                eventType: data.eventType,
+                peakAttendance: data.peakAttendance,
+                vipPresence: data.vipPresence,
+                eventSentiment: data.eventSentiment,
+                securityConcerns: data.securityConcerns,
+                mapImageUrl: mapImageUrl
+            }).then(response => {
+                setAiRecommendations(response.recommendations);
+            }).catch(err => {
+                console.error("AI recommendation error:", err);
+                toast({ variant: 'destructive', title: 'Could not get AI recommendations.'});
+            }).finally(() => {
                 setIsAiLoading(false);
-                toast({ variant: 'destructive', title: 'Configuration Error', description: 'Failed to load map configuration.' });
-            }
+            });
         } else {
              setIsAiLoading(false);
-             if (!isGoogleMapsConfigured()) {
-                toast({ variant: 'destructive', title: 'Google Maps API Key is missing.', description: 'Please configure your API key to use this feature.' });
+             if (!apiKey) {
+                toast({ variant: 'destructive', title: 'Google Maps API Key is missing.'});
              }
         }
 
-    }, [planId, toast, isMounted]);
+    }, [planId, toast, apiKey]);
 
     const saveAssets = (newAssets: any[]) => {
         setPlacedAssets(newAssets);
@@ -220,41 +199,28 @@ export function PlannerWorkspace({ planId }: { planId: string }) {
         const assetId = e.dataTransfer.getData('assetId');
         // @ts-ignore
         const map = mapRef.current;
-        if (!assetId || !map) {
-            toast({ variant: 'destructive', title: 'Drop failed', description: 'Unable to place asset at this location.' });
-            return;
-        }
+        if (!assetId || !map) return;
         
         const mapContainer = map.getDiv();
         const rect = mapContainer.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
 
-        try {
-            // This is a deprecated method but easier to use without the full map instance.
-            // For a more robust solution, we'd use a different approach with the map instance.
-            const projection = map.getProjection();
-            if (!projection) {
-                throw new Error('Map projection not available');
-            }
-            
-            const ne = projection.fromContainerPixelToLatLng(new google.maps.Point(x, y));
-            
-            if (ne) {
-                const assetType = assetLibrary.find(a => a.id === assetId);
-                const newAsset = {
-                    id: `asset-${Date.now()}`,
-                    type: assetId,
-                    label: `${assetType?.name || 'Asset'} ${placedAssets.length + 1}`,
-                    notes: '',
-                    location: ne.toJSON(),
-                };
-                saveAssets([...placedAssets, newAsset]);
-                toast({ title: "Asset Placed", description: `${newAsset.label} added to the map.`});
-            }
-        } catch (error) {
-            console.error('Error placing asset:', error);
-            toast({ variant: 'destructive', title: 'Failed to place asset', description: 'Could not determine map coordinates.' });
+        // This is a deprecated method but easier to use without the full map instance.
+        // For a more robust solution, we'd use a different approach with the map instance.
+        const projection = map.getProjection();
+        const ne = projection?.fromContainerPixelToLatLng(new google.maps.Point(x, y));
+        
+        if (ne) {
+            const newAsset = {
+                id: `asset-${Date.now()}`,
+                type: assetId,
+                label: `${assetLibrary.find(a=>a.id === assetId)?.name} ${placedAssets.length + 1}`,
+                notes: '',
+                location: ne.toJSON(),
+            };
+            saveAssets([...placedAssets, newAsset]);
+            toast({ title: "Asset Placed", description: `${newAsset.label} added to the map.`});
         }
     };
     
@@ -265,30 +231,16 @@ export function PlannerWorkspace({ planId }: { planId: string }) {
     const handleUpdateAsset = (e: React.FormEvent) => {
         e.preventDefault();
         if(!selectedAsset) return;
-        
-        try {
-            const formData = new FormData(e.target as HTMLFormElement);
-            const label = formData.get('label') as string;
-            const notes = formData.get('notes') as string;
-            
-            if (!label.trim()) {
-                toast({ variant: 'destructive', title: 'Validation Error', description: 'Asset label cannot be empty.' });
-                return;
-            }
-            
-            const updatedAsset = {
-                ...selectedAsset,
-                label: label.trim(),
-                notes: notes.trim(),
-            };
-            const newAssets = placedAssets.map(a => a.id === selectedAsset.id ? updatedAsset : a);
-            saveAssets(newAssets);
-            setSelectedAsset(null);
-            toast({ title: "Asset Updated", description: "Asset details have been saved successfully." });
-        } catch (error) {
-            console.error('Error updating asset:', error);
-            toast({ variant: 'destructive', title: 'Update Failed', description: 'Could not update asset details.' });
-        }
+        const formData = new FormData(e.target as HTMLFormElement);
+        const updatedAsset = {
+            ...selectedAsset,
+            label: formData.get('label') as string,
+            notes: formData.get('notes') as string,
+        };
+        const newAssets = placedAssets.map(a => a.id === selectedAsset.id ? updatedAsset : a);
+        saveAssets(newAssets);
+        setSelectedAsset(null);
+        toast({ title: "Asset Updated" });
     }
     
     const handleProceedToBriefing = () => {
@@ -320,39 +272,8 @@ export function PlannerWorkspace({ planId }: { planId: string }) {
 
     }
 
-    if (!apiKey) {
-        return (
-            <div className="flex-1 flex items-center justify-center h-full">
-                <Card className="max-w-md">
-                    <CardHeader>
-                        <CardTitle className="text-destructive">Configuration Required</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-4">
-                            <p>Google Maps API Key is missing.</p>
-                            <pre className="bg-muted p-2 rounded text-xs">
-                                NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_key
-                            </pre>
-                            <p className="text-sm text-muted-foreground">
-                                Add this to your environment configuration.
-                            </p>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-        );
-    }
-    
-    if (!planData) {
-        return (
-            <div className="flex-1 flex items-center justify-center h-full">
-                <div className="text-center">
-                    <Loader className="w-8 h-8 animate-spin mx-auto mb-4" />
-                    <p>Loading plan data...</p>
-                </div>
-            </div>
-        );
-    }
+    if (!apiKey) return <div>Missing Google Maps API Key</div>;
+    if (!planData) return <div>Loading plan...</div>;
 
     return (
         <div className="flex-1 flex h-full" onDrop={handleDrop} onDragOver={handleDragOver}>

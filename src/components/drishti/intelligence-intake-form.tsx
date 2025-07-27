@@ -1,6 +1,5 @@
 
 'use client';
-
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
@@ -25,7 +24,6 @@ import { Switch } from '@/components/ui/switch';
 import { APIProvider, Map, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 import { useToast } from '@/hooks/use-toast';
 import { Loader } from 'lucide-react';
-import { localStorage_getItem, localStorage_setItem, safeJsonParse, getEnvVar } from '@/lib/error-utils';
 
 const MOCK_CENTER = { lat: 12.9716, lng: 77.5946 }; // Bengaluru
 
@@ -122,7 +120,7 @@ export function IntelligenceIntakeForm() {
   const planIdToEdit = searchParams.get('from');
 
   const { toast } = useToast();
-  const apiKey = getEnvVar('NEXT_PUBLIC_GOOGLE_MAPS_API_KEY');
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const [isLoading, setIsLoading] = useState(true);
 
   const { register, handleSubmit, control, watch, setValue, formState: { errors, isValid }, reset } = useForm({
@@ -144,15 +142,13 @@ export function IntelligenceIntakeForm() {
   useEffect(() => {
     if (planIdToEdit) {
       try {
-        const savedDataStr = localStorage_getItem(`drishti-plan-${planIdToEdit}`);
+        const savedDataStr = localStorage.getItem(`drishti-plan-${planIdToEdit}`);
         if (savedDataStr) {
-          const savedData = safeJsonParse(savedDataStr);
-          if (savedData) {
-            reset(savedData);
-          }
+          const savedData = JSON.parse(savedDataStr);
+          reset(savedData);
         }
-      } catch (error) {
-        console.error("Failed to load plan data:", error);
+      } catch (e) {
+        console.error("Failed to load plan data:", e);
         toast({
           variant: "destructive",
           title: "Failed to load plan data",
@@ -171,52 +167,23 @@ export function IntelligenceIntakeForm() {
     console.log(data);
     const planId = planIdToEdit || `plan-${Date.now()}`;
     try {
-        // Validate data before saving
-        if (!data.eventName || !data.eventType || !data.venueAddress) {
-            toast({
-                variant: "destructive",
-                title: "Validation Error",
-                description: "Please fill in all required fields.",
-            });
-            return;
-        }
-
-        localStorage_setItem(`drishti-plan-${planId}`, JSON.stringify(data));
+        localStorage.setItem(`drishti-plan-${planId}`, JSON.stringify(data));
         toast({
             title: planIdToEdit ? "Plan Updated" : "Plan Created Successfully",
             description: "Proceeding to the Planner Workspace.",
         });
         router.push(`/planning/${planId}/edit`);
     } catch (e) {
-        console.error("Failed to save plan:", e);
         toast({
             variant: "destructive",
             title: "Failed to save plan",
-            description: "Could not save plan data to local storage. Please try again.",
+            description: "Could not save plan data to local storage.",
         });
     }
   };
 
   if (!apiKey) {
-      return (
-        <Card className="max-w-4xl mx-auto">
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold text-destructive">Configuration Error</CardTitle>
-            <CardDescription>Google Maps API Key is missing</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <p>To use the Intelligence Intake Form, you need to configure your Google Maps API key.</p>
-              <pre className="bg-muted p-4 rounded-md text-sm">
-                NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_api_key_here
-              </pre>
-              <p className="text-sm text-muted-foreground">
-                Add this to your .env.local file and restart the development server.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      );
+      return <div>API Key for Google Maps is missing.</div>
   }
   
   if (isLoading) {
