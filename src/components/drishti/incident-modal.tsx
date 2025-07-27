@@ -30,16 +30,8 @@ export default function IncidentModal({ incident, isOpen, onOpenChange, onDispat
   if (!incident) return null;
 
   const handleDispatch = () => {
-    // For high severity, trigger the route calculation via the onDispatch prop
-    if (incident.type === 'Altercation' || incident.severity === 'High') {
-      onDispatch();
-    } else {
-      toast({
-        title: 'Unit Dispatched',
-        description: `Nearest unit has been dispatched to ${incident.type.replace(/([A-Z])/g, ' $1').trim()}.`,
-      });
-      onOpenChange(false);
-    }
+    // Always trigger the route calculation via the onDispatch prop
+    onDispatch();
   };
 
   return (
