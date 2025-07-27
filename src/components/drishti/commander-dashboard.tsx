@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { Alert, Staff, Incident, MapLayers, Location, Route, Camera, HeatmapPoint } from '@/lib/types';
+import type { Staff, Incident, MapLayers, Location, Route, Camera, HeatmapPoint } from '@/lib/types';
 import Sidebar from '@/components/drishti/sidebar';
 import MapView from '@/components/drishti/map-view';
 import IncidentModal from '@/components/drishti/incident-modal';
@@ -36,7 +36,6 @@ const CAMERA_STORAGE_KEY = 'drishti-planning-camera-positions';
 
 function Dashboard() {
   const [activeTab, setActiveTab] = useState('alerts');
-  const [alerts, setAlerts] = useState<Alert[]>([]);
   const [staff, setStaff] = useState<Staff[]>(MOCK_STAFF);
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -57,16 +56,39 @@ function Dashboard() {
     if (savedCameras) {
       try {
         const parsedCameras = JSON.parse(savedCameras);
-        const cameraData = MOCK_CAMERAS.map(mc => {
-            const saved = parsedCameras.find((pc: any) => pc.id === mc.id);
-            return saved ? { ...mc, location: saved.location } : mc;
-        });
-        setCameras(cameraData);
-      } catch { setCameras(MOCK_CAMERAS); }
-    } else { setCameras(MOCK_CAMERAS); }
+        // Ensure that parsedCameras is an array before mapping
+        if (Array.isArray(parsedCameras)) {
+          const cameraData = MOCK_CAMERAS.map(mc => {
+              const saved = parsedCameras.find((pc: any) => pc.id === mc.id);
+              return saved ? { ...mc, location: saved.location } : mc;
+          });
+          setCameras(cameraData);
+        } else {
+          console.warn("Parsed camera data from localStorage is not an array, falling back to MOCK_CAMERAS.");
+          setCameras(MOCK_CAMERAS);
+        }
+      } catch (e) {
+        console.error("Error parsing saved cameras from localStorage, falling back to MOCK_CAMERAS:", e);
+        setCameras(MOCK_CAMERAS);
+      }
+    } else {
+      setCameras(MOCK_CAMERAS);
+    }
   }, []);
-  
-  const handleTabSelect = (tab: string) => {
+
+  // Removed hardcoded alerts generation
+  // useEffect(() => {
+  //   if (cameras.length === 0) return;
+  //   const interval = setInterval(() => {
+  //       const newIncident = generateRandomIncident(cameras);
+  //       setIncidents(prev => [newIncident, ...prev]);
+  //       // setAlerts(prev => [newIncident, ...prev].sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime()));
+  //       toast({ title: `New ${newIncident.severity} Severity Alert`, description: newIncident.description });
+  //   }, 15000);
+  //   return () => clearInterval(interval);
+  // }, [cameras, toast]);
+
+  const handleTabSelect = (tab: string) => { // Widened type to string
       setActiveTab(tab);
   };
 
@@ -126,7 +148,7 @@ function Dashboard() {
   return (
       <div className="flex h-screen w-screen overflow-hidden">
         <Sidebar
-          alerts={alerts} staff={staff} onAlertClick={handleAlertClick} onStaffClick={handleStaffClick}
+          staff={staff} onAlertClick={handleAlertClick} onStaffClick={handleStaffClick}
           mapLayers={mapLayers} onToggleLayer={handleToggleLayer} onTabSelect={handleTabSelect}
           activeTab={activeTab}
         />

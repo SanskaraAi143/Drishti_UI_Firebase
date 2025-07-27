@@ -20,14 +20,16 @@ interface HeatmapPoint {
   weight: number;
 }
 
-const API_HOST = process.env.NEXT_PUBLIC_API_HOST || 'http://localhost:8001'; // Default to localhost if not set
+const API_HOST = 'http://localhost:8000';
 const HTTP_ENDPOINT = `${API_HOST}/camera_metrics`;
+
 
 export default function CameraGrid({ cameras, onHeatmapUpdate }: CameraGridProps) {
   const [crowdCounts, setCrowdCounts] = useState<CrowdCountData>({});
   const { toast } = useToast();
 
   useEffect(() => {
+    if (cameras.length === 0) return;
     const fetchData = async () => {
       try {
         const response = await fetch(HTTP_ENDPOINT);
@@ -35,34 +37,18 @@ export default function CameraGrid({ cameras, onHeatmapUpdate }: CameraGridProps
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data: CrowdCountData = await response.json();
-        console.log('Fetched crowd data:', data); // Added log
-        
-        // Map the incoming data keys (streamUrl filenames) to camera IDs
-        const mappedCrowdCounts: CrowdCountData = {};
-        Object.keys(data).forEach(streamFileName => {
-            // Extract filename from camera.streamUrl for a more robust match
-            const camera = cameras.find(c => {
-                const urlParts = c.streamUrl.split('/');
-                const cameraFileName = urlParts[urlParts.length - 1];
-                return cameraFileName === streamFileName;
-            });
-            if (camera) {
-                mappedCrowdCounts[camera.id] = data[streamFileName];
-            }
-        });
-        setCrowdCounts(mappedCrowdCounts);
+        setCrowdCounts(data);
 
-        const heatmapPoints: HeatmapPoint[] = Object.keys(mappedCrowdCounts) // Use mappedCrowdCounts for heatmap points
+        const heatmapPoints: HeatmapPoint[] = Object.keys(data)
           .map(cameraId => {
             const camera = cameras.find(c => c.id === cameraId);
             if (camera) {
-              return { lat: camera.location.lat, lng: camera.location.lng, weight: mappedCrowdCounts[cameraId] };
+              return { lat: camera.location.lat, lng: camera.location.lng, weight: data[cameraId] };
             } else {
               return null;
             }
           })
           .filter((p): p is HeatmapPoint => p !== null);
-        console.log('Generated heatmap points:', heatmapPoints); // Added log
         onHeatmapUpdate(heatmapPoints);
 
       } catch (error) {
@@ -78,8 +64,8 @@ export default function CameraGrid({ cameras, onHeatmapUpdate }: CameraGridProps
     // Fetch data immediately on mount
     fetchData();
 
-    // Set up interval to fetch data every 5 seconds for diagnostic purposes
-    const intervalId = setInterval(fetchData, 5000); // Changed from 15 seconds to 5 seconds
+    // Set up interval to fetch data every 15 seconds
+    const intervalId = setInterval(fetchData, 15000); // 15 seconds
 
     // Clean up interval on component unmount
     return () => clearInterval(intervalId);

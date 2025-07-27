@@ -1,7 +1,8 @@
 
 'use client';
 
-import type { Alert, Staff, MapLayers } from '@/lib/types';
+import type { Staff, MapLayers } from '@/lib/types';
+import useAlertsWebSocket from '@/hooks/useAlertsWebSocket';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -14,7 +15,6 @@ import { Sidebar as SidebarPrimitive, SidebarContent, SidebarHeader, SidebarTrig
 import Link from 'next/link';
 
 interface SidebarProps {
-  alerts: Alert[];
   staff: Staff[];
   onAlertClick: (alert: Alert) => void;
   onStaffClick: (staff: Staff) => void;
@@ -25,7 +25,6 @@ interface SidebarProps {
 }
 
 export default function Sidebar({
-  alerts,
   staff,
   onAlertClick,
   onStaffClick,
@@ -34,6 +33,7 @@ export default function Sidebar({
   onTabSelect,
   activeTab,
 }: SidebarProps) {
+  const { alerts, error, isConnected } = useAlertsWebSocket();
   
   const handleTabChange = (value: string) => {
     onTabSelect(value);
@@ -63,6 +63,8 @@ export default function Sidebar({
           {/* Main content tabs */}
           <TabsContent value="alerts" className="mt-4 flex-grow overflow-hidden">
             <AlertsFeed alerts={alerts} onAlertClick={onAlertClick} />
+            {error && <p className="text-red-500 text-sm mt-2">WebSocket Error: {error.type}</p>}
+            {!isConnected && <p className="text-yellow-500 text-sm mt-2">Connecting to alerts feed...</p>}
           </TabsContent>
           <TabsContent value="staff" className="mt-4 flex-grow overflow-hidden">
             <StaffView staff={staff} onStaffClick={onStaffClick} />

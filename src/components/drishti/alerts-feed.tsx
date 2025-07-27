@@ -1,6 +1,7 @@
 'use client';
 
 import type { Alert } from '@/lib/types';
+import useAlertsWebSocket from '@/hooks/useAlertsWebSocket';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { IncidentIcon } from '../icons/incident-icons';
@@ -8,7 +9,6 @@ import { cn } from '@/lib/utils';
 import { ClientOnlyTimestamp } from './client-only-timestamp';
 
 interface AlertsFeedProps {
-  alerts: Alert[];
   onAlertClick: (alert: Alert) => void;
 }
 
@@ -24,7 +24,8 @@ const severityIconClasses = {
     Low: 'text-blue-500',
 }
 
-export default function AlertsFeed({ alerts, onAlertClick }: AlertsFeedProps) {
+export default function AlertsFeed({ onAlertClick }: AlertsFeedProps) {
+  const { alerts, error, isConnected } = useAlertsWebSocket();
   return (
     <ScrollArea className="h-full">
       <div className="space-y-3 pr-2">
