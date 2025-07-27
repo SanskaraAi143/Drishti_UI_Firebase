@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import AiChatWidget from './ai-chat-widget';
 import { useMapsLibrary } from '@vis.gl/react-google-maps';
-import CameraGrid from './camera-grid'; // Changed from CameraView to CameraGrid
+import CameraView from './camera-view';
 
 // --- MOCK DATA and CONSTANTS ---
 const MOCK_CENTER: Location = { lat: 12.9716, lng: 77.5946 };
@@ -45,7 +45,7 @@ function Dashboard() {
   const [mapLayers, setMapLayers] = useState<MapLayers>({ heatmap: true, staff: true, incidents: true, cameras: true, bottlenecks: true });
   const [mapCenter, setMapCenter] = useState<Location>(MOCK_CENTER);
   const [mapZoom, setMapZoom] = useState(15);
-  const [heatmapPoints, setHeatmapPoints] = useState<HeatmapPoint[]>([]); // Added heatmapPoints state
+  const [heatmapPoints, setHeatmapPoints] = useState<HeatmapPoint[]>([]);
   const { toast } = useToast();
   const routesLibrary = useMapsLibrary('routes');
   const directionsServiceRef = useRef<google.maps.DirectionsService>();
@@ -66,35 +66,37 @@ function Dashboard() {
     } else { setCameras(MOCK_CAMERAS); }
   }, []);
   
-  const handleTabSelect = (tab: string) => { // Widened type to string
+  const handleTabSelect = (tab: string) => {
       setActiveTab(tab);
   };
 
-  const handleAlertClick = useCallback((alert: Incident) => {
+  const handleAlertClick = (alert: Incident) => {
     setSelectedIncident(alert); setMapCenter(alert.location); setMapZoom(18); setActiveTab('alerts');
-  }, []);
-  const handleStaffClick = useCallback((staffMember: Staff) => {
+  };
+  const handleStaffClick = (staffMember: Staff) => {
     setMapCenter(staffMember.location); setMapZoom(18); setActiveTab('staff');
-  }, []);
-  const handleToggleLayer = useCallback((layer: keyof MapLayers) => {
+  };
+  const handleToggleLayer = (layer: keyof MapLayers) => {
     setMapLayers(prev => ({ ...prev, [layer]: !prev[layer] }));
-  }, []);
-  const handleMapInteraction = useCallback((center: Location, zoom: number) => {
+  };
+  const handleMapInteraction = (center: Location, zoom: number) => {
     setMapCenter(center); setMapZoom(zoom);
-  }, []);
-  const handleDirectionsChange = useCallback((result: google.maps.DirectionsResult | null, route: Route | null) => {
+  };
+  const handleDirectionsChange = (result: google.maps.DirectionsResult | null, route: Route | null) => {
     setIncidentRoute({ directions: result, routeInfo: route });
-  }, []);
-  const handleCameraClickOnMap = useCallback((camera: Camera) => {
+  };
+  const handleCameraClickOnMap = (camera: Camera) => {
     setMapCenter(camera.location); setMapZoom(18); setActiveTab('cameras');
-  }, []);
-  const handleCameraMove = useCallback((cameraId: string, newLocation: Location) => {
+  };
+  
+  const handleCameraMove = (cameraId: string, newLocation: Location) => {
     const updatedCameras = cameras.map(c => c.id === cameraId ? { ...c, location: newLocation } : c);
     setCameras(updatedCameras);
-    toast({ title: "Camera Repositioned (Session)", description: `Camera ${cameras.find(c=>c.id === cameraId)?.name} position updated.` });
-  }, [cameras, toast]);
+    localStorage.setItem(CAMERA_STORAGE_KEY, JSON.stringify(updatedCameras));
+    toast({ title: "Camera Position Saved", description: `New location for ${cameras.find(c=>c.id === cameraId)?.name} saved to browser.` });
+  };
 
-  const handleHeatmapUpdate = useCallback((points: HeatmapPoint[]) => { // Added handleHeatmapUpdate
+  const handleHeatmapUpdate = useCallback((points: HeatmapPoint[]) => {
     setHeatmapPoints(points);
   }, []);
 
@@ -103,7 +105,7 @@ function Dashboard() {
         case 'lost-and-found':
             return <LostAndFound />;
         case 'cameras':
-            return <CameraGrid cameras={cameras} onHeatmapUpdate={handleHeatmapUpdate} />; // Changed from CameraView to CameraGrid
+            return <CameraView cameras={cameras} isCommanderAtJunctionA={false} />;
         case 'alerts':
         case 'staff':
         default:
@@ -115,7 +117,7 @@ function Dashboard() {
                     onCameraMove={handleCameraMove} onMapInteraction={handleMapInteraction}
                     incidentDirections={incidentRoute.directions} onIncidentDirectionsChange={handleDirectionsChange}
                     isIncidentRouteActive={!!selectedIncident && selectedIncident.severity === 'High'}
-                    heatmapData={heatmapPoints} // Pass heatmapPoints to MapView
+                    heatmapData={heatmapPoints}
                 />
             );
     }
