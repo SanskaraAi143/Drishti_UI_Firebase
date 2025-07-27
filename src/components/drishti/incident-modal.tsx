@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Incident, Route } from '@/lib/types';
@@ -19,20 +20,26 @@ interface IncidentModalProps {
   incident: Incident | null;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  onDispatch: () => void;
   route: Route | null;
 }
 
-export default function IncidentModal({ incident, isOpen, onOpenChange, route }: IncidentModalProps) {
+export default function IncidentModal({ incident, isOpen, onOpenChange, onDispatch, route }: IncidentModalProps) {
   const { toast } = useToast();
 
   if (!incident) return null;
 
   const handleDispatch = () => {
-    toast({
-      title: 'Unit Dispatched',
-      description: `Nearest unit has been dispatched to ${incident.type.replace(/([A-Z])/g, ' $1').trim()}.`,
-    });
-    onOpenChange(false);
+    // For high severity, trigger the route calculation via the onDispatch prop
+    if (incident.type === 'Altercation' || incident.severity === 'High') {
+      onDispatch();
+    } else {
+      toast({
+        title: 'Unit Dispatched',
+        description: `Nearest unit has been dispatched to ${incident.type.replace(/([A-Z])/g, ' $1').trim()}.`,
+      });
+      onOpenChange(false);
+    }
   };
 
   return (

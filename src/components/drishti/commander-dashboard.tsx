@@ -99,9 +99,9 @@ function Dashboard() {
   const handleStaffClick = (staffMember: Staff) => {
     setMapCenter(staffMember.location); setMapZoom(18); setActiveTab('staff');
   };
-  const handleToggleLayer = useCallback((layer: keyof MapLayers) => {
+  const handleToggleLayer = (layer: keyof MapLayers) => {
     setMapLayers(prev => ({ ...prev, [layer]: !prev[layer] }));
-  }, []);
+  };
   const handleMapInteraction = (center: Location, zoom: number) => {
     setMapCenter(center); setMapZoom(zoom);
   };
@@ -122,6 +122,40 @@ function Dashboard() {
   const handleHeatmapUpdate = useCallback((points: HeatmapPoint[]) => {
     setHeatmapPoints(points);
   }, []);
+  
+  const handleDispatchRequest = () => {
+    if (!selectedIncident || !directionsServiceRef.current) return;
+
+    const commander = staff.find(s => s.role === 'Commander');
+    if (!commander) {
+      toast({ variant: 'destructive', title: 'Dispatch Error', description: 'Commander not found.' });
+      return;
+    }
+
+    const request: google.maps.DirectionsRequest = {
+      origin: commander.location,
+      destination: selectedIncident.location,
+      travelMode: google.maps.TravelMode.DRIVING,
+    };
+
+    directionsServiceRef.current.route(request, (result, status) => {
+      if (status === 'OK' && result) {
+        handleDirectionsChange(result, null); // routeInfo is set by the renderer
+        toast({ title: 'Route Calculated', description: 'Fastest route to incident is now displayed.' });
+      } else {
+        toast({ variant: 'destructive', title: 'Route Calculation Failed', description: `Could not find a route. Status: ${status}` });
+      }
+    });
+
+    onOpenChange(false); // Close the modal
+  };
+
+  const onOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      setSelectedIncident(null);
+      setIncidentRoute({ directions: null, routeInfo: null });
+    }
+  };
 
   const renderActiveView = () => {
     switch (activeTab) {
@@ -139,7 +173,7 @@ function Dashboard() {
                     onIncidentClick={handleAlertClick} onCameraClick={handleCameraClickOnMap}
                     onCameraMove={handleCameraMove} onMapInteraction={handleMapInteraction}
                     incidentDirections={incidentRoute.directions} onIncidentDirectionsChange={handleDirectionsChange}
-                    isIncidentRouteActive={!!selectedIncident && selectedIncident.severity === 'High'}
+                    isIncidentRouteActive={!!selectedIncident && (selectedIncident.type === 'Altercation' || selectedIncident.severity === 'High')}
                     heatmapData={heatmapPoints}
                 />
             );
@@ -159,7 +193,8 @@ function Dashboard() {
         </SidebarInset>
         <IncidentModal
           incident={selectedIncident} isOpen={!!selectedIncident}
-          onOpenChange={(isOpen) => { if (!isOpen) { setSelectedIncident(null); setIncidentRoute({ directions: null, routeInfo: null }); } }}
+          onOpenChange={onOpenChange}
+          onDispatch={handleDispatchRequest}
           route={incidentRoute.routeInfo}
         />
       </div>
